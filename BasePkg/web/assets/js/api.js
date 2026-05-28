@@ -1,0 +1,1 @@
+window.AgenticTalkAPI = window.AgenticTalkAPI || {};
