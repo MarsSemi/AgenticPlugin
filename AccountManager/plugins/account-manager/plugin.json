@@ -1,0 +1,65 @@
+{
+  "id": "account-manager",
+  "name": "帳號管理",
+  "version": "0.1.0",
+  "type": "service",
+  "auto_start": true,
+  "website_path": "./website/account-manager/index.html",
+  "ui": {
+    "enabled": true,
+    "order": 60,
+    "website_path": "./website/account-manager/index.html",
+    "href": "/account-manager/index.html",
+    "code": "ACCT",
+    "class": "account-manager",
+    "title": "帳號管理",
+    "description": "帳號、密碼驗證與跨 Plugin 存取權限管理。",
+    "action": "進入帳號管理",
+    "icon": "fa-solid fa-user-shield",
+    "color": "indigo"
+  },
+  "entry": "./plugins/account-manager/bin/account-manager-service",
+  "platform_entries": {
+    "darwin/arm64": "./plugins/account-manager/bin/account-manager-service_darwin_arm64",
+    "darwin/amd64": "./plugins/account-manager/bin/account-manager-service_darwin_amd64",
+    "linux/amd64": "./plugins/account-manager/bin/account-manager-service_linux_amd64",
+    "linux/arm64": "./plugins/account-manager/bin/account-manager-service_linux_arm64",
+    "windows/amd64": "./plugins/account-manager/bin/account-manager-service_windows_amd64.exe",
+    "windows/arm64": "./plugins/account-manager/bin/account-manager-service_windows_arm64.exe"
+  },
+  "source_entry": "./src/accountmanager/service",
+  "service_url": "http://127.0.0.1:18186",
+  "api_base": "/api/plugin/account-manager",
+  "plugin_api_base": "/api/account-manager",
+  "mcp_url": "http://127.0.0.1:18186/mcp",
+  "routes": ["/api/account-manager", "/api/account"],
+  "runtime": {
+    "service": "account-manager-service",
+    "addr": "127.0.0.1:18186",
+    "listen_addr": "127.0.0.1:18186",
+    "health": "/api/account-manager/plugin/status",
+    "auth": "/api/account-manager/plugin/auth",
+    "load": "/api/account-manager/plugin/load",
+    "unload": "/api/account-manager/plugin/unload",
+    "registration": "/api/account-manager/plugin/registration",
+    "start_args": ["-config", "plugins/account-manager/config.json"]
+  },
+  "invoke": {
+    "type": "CallPlugin",
+    "api_base": "/api/plugin/account-manager",
+    "plugin_api_base": "/api/account-manager"
+  },
+  "enabled": true,
+  "capabilities": [
+    "lifecycle",
+    "registration",
+    "host-auth",
+    "mcp",
+    "config",
+    "account-crud",
+    "group-crud",
+    "password-aes",
+    "credential-verify",
+    "plugin-permission"
+  ]
+}

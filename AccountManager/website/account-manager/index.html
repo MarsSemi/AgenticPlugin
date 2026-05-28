@@ -1,0 +1,1427 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>帳號管理 · AgenticService</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #f6f8fb;
+            --panel: #ffffff;
+            --ink: #182235;
+            --muted: #627083;
+            --line: #d8e1ee;
+            --brand: #2f5e88;
+            --brand-strong: #214c70;
+            --brand-soft: #e8f1f8;
+            --ok: #166534;
+            --danger: #b42318;
+            --warning: #9a5b00;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--ink);
+            background: var(--bg);
+            font-family: "Noto Sans TC", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            letter-spacing: 0;
+        }
+
+        .page {
+            width: min(1280px, calc(100% - 32px));
+            margin: 0 auto;
+            padding: 22px 0 34px;
+        }
+
+        .topbar,
+        .section-head,
+        .form-actions,
+        .permission-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .topbar {
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .top-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+
+        .title-wrap {
+            min-width: 0;
+        }
+
+        .list-heading {
+            display: grid;
+            gap: 3px;
+            min-width: 0;
+        }
+
+        .main-tabs {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px;
+            border: 1px solid #d8e1ee;
+            border-radius: 8px;
+            background: #ffffff;
+        }
+
+        .main-tab {
+            min-height: 38px;
+            padding: 0 14px;
+            border-color: transparent;
+            background: transparent;
+            color: #526176;
+            font-size: 15px;
+        }
+
+        .main-tab.active {
+            border-color: #bad0e3;
+            background: var(--brand-soft);
+            color: var(--brand-strong);
+        }
+
+        .subtitle {
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        a.back-link,
+        button {
+            min-height: 38px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 0 13px;
+            border: 1px solid #cbd6e3;
+            border-radius: 8px;
+            background: #ffffff;
+            color: #314258;
+            cursor: pointer;
+            font: inherit;
+            font-size: 14px;
+            font-weight: 800;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        button.icon {
+            width: 38px;
+            padding: 0;
+        }
+
+        button.primary {
+            border-color: var(--brand);
+            background: var(--brand);
+            color: #ffffff;
+        }
+
+        button.primary.is-confirmed {
+            border-color: #15803d;
+            background: #16a34a;
+            animation: saveConfirmPulse 0.72s ease-out;
+        }
+
+        @keyframes saveConfirmPulse {
+            0% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.35);
+            }
+            45% {
+                transform: scale(1.04);
+                box-shadow: 0 0 0 8px rgba(22, 163, 74, 0.16);
+            }
+            100% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(22, 163, 74, 0);
+            }
+        }
+
+        button.danger {
+            border-color: #f5b7b1;
+            color: var(--danger);
+        }
+
+        button:disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            min-height: 28px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: var(--brand-soft);
+            color: var(--brand-strong);
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .status-pill.ok {
+            background: #dcfce7;
+            color: var(--ok);
+        }
+
+        .status-pill.warn {
+            background: #fff7db;
+            color: var(--warning);
+        }
+
+        .status-pill.error {
+            background: #fee4e2;
+            color: var(--danger);
+        }
+
+        .account-switch {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            min-height: 36px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            color: #314258;
+            font-size: 13px;
+            font-weight: 900;
+            user-select: none;
+        }
+
+        .account-switch input {
+            position: absolute;
+            inline-size: 1px;
+            block-size: 1px;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .switch-track {
+            position: relative;
+            width: 46px;
+            height: 26px;
+            flex: 0 0 auto;
+            border: 1px solid #c9d4e2;
+            border-radius: 999px;
+            background: #e5eaf0;
+            transition: background 0.16s ease, border-color 0.16s ease;
+        }
+
+        .switch-track::after {
+            content: "";
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 18px;
+            height: 18px;
+            border-radius: 999px;
+            background: #ffffff;
+            box-shadow: 0 1px 4px rgba(15, 23, 42, 0.25);
+            transition: transform 0.16s ease;
+        }
+
+        .account-switch input:checked + .switch-track {
+            border-color: #7ac19b;
+            background: #22a35a;
+        }
+
+        .account-switch input:checked + .switch-track::after {
+            transform: translateX(20px);
+        }
+
+        .account-switch input:focus-visible + .switch-track {
+            outline: 3px solid rgba(47, 94, 136, 0.2);
+            outline-offset: 2px;
+        }
+
+        .account-switch input:disabled + .switch-track {
+            opacity: 0.55;
+        }
+
+        .workspace {
+            display: grid;
+            grid-template-columns: 340px minmax(0, 1fr);
+            gap: 16px;
+            align-items: start;
+        }
+
+        .panel {
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: var(--panel);
+        }
+
+        .section-head {
+            justify-content: space-between;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--line);
+            font-weight: 900;
+        }
+
+        .section-body {
+            padding: 16px;
+        }
+
+        .account-tools {
+            display: grid;
+            gap: 10px;
+            padding: 12px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+            border: 1px solid #cbd6e3;
+            border-radius: 8px;
+            padding: 10px 11px;
+            color: var(--ink);
+            background: #ffffff;
+            font: inherit;
+            font-size: 14px;
+            line-height: 1.45;
+        }
+
+        textarea {
+            min-height: 90px;
+            resize: vertical;
+        }
+
+        label {
+            display: grid;
+            gap: 6px;
+            color: #314258;
+            font-size: 13px;
+            font-weight: 900;
+        }
+
+        .account-list {
+            display: grid;
+            gap: 6px;
+            max-height: calc(100vh - 220px);
+            overflow: auto;
+            padding: 10px;
+        }
+
+        .account-item {
+            width: 100%;
+            min-height: 66px;
+            justify-content: flex-start;
+            padding: 10px;
+            border-radius: 8px;
+            text-align: left;
+            white-space: normal;
+        }
+
+        .account-item.active {
+            border-color: var(--brand);
+            background: var(--brand-soft);
+            color: var(--brand-strong);
+        }
+
+        .account-main {
+            min-width: 0;
+            display: grid;
+            gap: 3px;
+        }
+
+        .account-name {
+            font-size: 15px;
+            font-weight: 900;
+            overflow-wrap: anywhere;
+        }
+
+        .account-meta {
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 700;
+            overflow-wrap: anywhere;
+        }
+
+        .tabs {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px;
+            border: 1px solid #d8e1ee;
+            border-radius: 8px;
+            background: #f8fafc;
+        }
+
+        .tab {
+            min-height: 32px;
+            padding: 0 11px;
+            border-color: transparent;
+            background: transparent;
+            color: #526176;
+            font-size: 13px;
+        }
+
+        .tab.active {
+            border-color: #bad0e3;
+            background: #ffffff;
+            color: var(--brand-strong);
+        }
+
+        .tab-panel[hidden],
+        .main-panel[hidden] {
+            display: none;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+            align-items: start;
+        }
+
+        .form-grid .wide {
+            grid-column: 1 / -1;
+        }
+
+        .form-section {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+            align-items: start;
+        }
+
+        .checkbox-list {
+            min-height: 82px;
+            max-height: 132px;
+            overflow: auto;
+            display: grid;
+            align-content: start;
+            gap: 8px;
+            padding: 10px;
+            border: 1px solid #cbd6e3;
+            border-radius: 8px;
+            background: #ffffff;
+        }
+
+        .password-row {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+        }
+
+        .checkbox-item {
+            min-height: 32px;
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            color: #314258;
+            font-size: 14px;
+            font-weight: 800;
+        }
+
+        .checkbox-item input {
+            width: 18px;
+            height: 18px;
+            flex: 0 0 auto;
+        }
+
+        .checkbox-empty {
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 800;
+        }
+
+        .check-row {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            min-height: 42px;
+            color: #314258;
+            font-size: 14px;
+            font-weight: 900;
+        }
+
+        .check-row input {
+            width: 18px;
+            height: 18px;
+        }
+
+        .form-actions {
+            justify-content: flex-end;
+            margin-top: 16px;
+        }
+
+        .permission-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .permission-row {
+            display: grid;
+            grid-template-columns: minmax(220px, 1.4fr) minmax(160px, 0.9fr) auto auto;
+            gap: 10px;
+            align-items: end;
+            padding: 12px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #fbfdff;
+        }
+
+        .permission-actions {
+            justify-content: flex-end;
+            margin-bottom: 12px;
+        }
+
+        .empty {
+            padding: 28px 18px;
+            color: var(--muted);
+            text-align: center;
+            font-weight: 800;
+        }
+
+        @media (max-width: 920px) {
+            .topbar,
+            .top-left {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .workspace,
+            .form-grid,
+            .form-section,
+            .password-row {
+                grid-template-columns: 1fr;
+            }
+
+            .permission-row {
+                grid-template-columns: 1fr;
+            }
+
+            .account-list {
+                max-height: 360px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="page">
+        <div class="topbar">
+            <div class="top-left">
+                <a class="back-link" href="/main.html" aria-label="回到主畫面"><i class="fa-solid fa-arrow-left"></i> 回到主畫面</a>
+                <div class="title-wrap">
+                    <div class="main-tabs" role="tablist" aria-label="帳號與群組管理切換">
+                        <button class="main-tab active" type="button" data-main-tab="accounts"><i class="fa-solid fa-users"></i> 帳號管理</button>
+                        <button class="main-tab" type="button" data-main-tab="groups"><i class="fa-solid fa-layer-group"></i> 群組管理</button>
+                    </div>
+                </div>
+            </div>
+            <span class="status-pill" id="runtimeStatus"><i class="fa-solid fa-circle-notch fa-spin"></i> 檢查中</span>
+        </div>
+
+        <section class="workspace main-panel" data-main-panel="accounts">
+            <aside class="panel">
+                <div class="section-head">
+                    <span class="list-heading">
+                        <span>帳號列表</span>
+                        <span class="subtitle" id="accountSummary">讀取帳號資料中</span>
+                    </span>
+                    <button class="icon primary" type="button" id="newAccountBtn" title="新增帳號" aria-label="新增帳號"><i class="fa-solid fa-plus"></i></button>
+                </div>
+                <div class="account-tools">
+                    <input id="accountSearch" placeholder="搜尋帳號、姓名、角色">
+                    <button type="button" id="reloadBtn"><i class="fa-solid fa-rotate"></i> 重新整理</button>
+                </div>
+                <div class="account-list" id="accountList">
+                    <div class="empty">尚無帳號資料</div>
+                </div>
+            </aside>
+
+            <section class="panel">
+                <div class="section-head">
+                    <div class="tabs" role="tablist" aria-label="帳號內容切換">
+                        <button class="tab active" type="button" data-tab="profile"><i class="fa-solid fa-id-card"></i> 帳號內容</button>
+                    </div>
+                    <label class="account-switch" id="selectedStatus">
+                        <input id="enabled" type="checkbox">
+                        <span class="switch-track" aria-hidden="true"></span>
+                        <span class="switch-label" id="enabledSwitchLabel">啟用</span>
+                    </label>
+                </div>
+
+                <div class="section-body">
+                    <div class="tab-panel" data-tab-panel="profile">
+                        <form id="accountForm">
+                            <div class="form-grid">
+                                <label>
+                                    帳號 ID
+                                    <input id="accountId" autocomplete="off">
+                                </label>
+                                <label>
+                                    顯示名稱
+                                    <input id="displayName" autocomplete="name">
+                                </label>
+                                <label>
+                                    Email
+                                    <input id="email" type="email" autocomplete="email">
+                                </label>
+                                <label>
+                                    角色
+                                    <select id="role">
+                                        <option value="admin">admin</option>
+                                        <option value="manager">manager</option>
+                                        <option value="user">user</option>
+                                        <option value="viewer">viewer</option>
+                                    </select>
+                                </label>
+                                <div class="form-section">
+                                    <label class="wide">
+                                        所屬群組
+                                        <div class="checkbox-list" id="groupIds"></div>
+                                    </label>
+                                </div>
+                                <div class="password-row">
+                                    <label>
+                                        密碼
+                                        <input id="password" type="password" autocomplete="new-password" placeholder="留空表示不變更">
+                                    </label>
+                                    <label>
+                                        確認密碼
+                                        <input id="confirmPassword" type="password" autocomplete="new-password" placeholder="再次輸入密碼">
+                                    </label>
+                                </div>
+                                <label class="wide">
+                                    備註
+                                    <textarea id="note" spellcheck="false" placeholder="輸入一般文字備註"></textarea>
+                                </label>
+                            </div>
+                            <div class="form-actions">
+                                <button type="button" class="danger" id="deleteBtn"><i class="fa-solid fa-trash"></i> 刪除</button>
+                                <button type="submit" class="primary" id="saveAccountBtn"><i class="fa-solid fa-floppy-disk"></i> 儲存</button>
+                            </div>
+                        </form>
+                    </div>
+
+                </div>
+            </section>
+        </section>
+
+        <section class="workspace main-panel" data-main-panel="groups" hidden>
+            <aside class="panel">
+                <div class="section-head">
+                    <span class="list-heading">
+                        <span>群組列表</span>
+                        <span class="subtitle" id="groupSummary">讀取群組資料中</span>
+                    </span>
+                    <button class="icon primary" type="button" id="newGroupBtn" title="新增群組" aria-label="新增群組"><i class="fa-solid fa-plus"></i></button>
+                </div>
+                <div class="account-tools">
+                    <input id="groupSearch" placeholder="搜尋群組、備註">
+                    <button type="button" id="reloadGroupsBtn"><i class="fa-solid fa-rotate"></i> 重新整理</button>
+                </div>
+                <div class="account-list" id="groupList">
+                    <div class="empty">尚無群組資料</div>
+                </div>
+            </aside>
+
+            <section class="panel">
+                <div class="section-head">
+                    <div class="tabs" role="tablist" aria-label="群組內容切換">
+                        <button class="tab active" type="button" data-group-tab="profile"><i class="fa-solid fa-layer-group"></i> 群組內容</button>
+                        <button class="tab" type="button" data-group-tab="permissions"><i class="fa-solid fa-plug-circle-check"></i> Plugin 權限</button>
+                    </div>
+                    <label class="account-switch" id="groupStatus">
+                        <input id="groupEnabled" type="checkbox">
+                        <span class="switch-track" aria-hidden="true"></span>
+                        <span class="switch-label" id="groupEnabledLabel">啟用</span>
+                    </label>
+                </div>
+                <div class="section-body">
+                    <div class="tab-panel" data-group-tab-panel="profile">
+                        <form id="groupForm">
+                            <div class="form-grid">
+                                <label>
+                                    群組 ID
+                                    <input id="groupId" autocomplete="off">
+                                </label>
+                                <label>
+                                    群組名稱
+                                    <input id="groupName" required>
+                                </label>
+                                <label class="wide">
+                                    備註
+                                    <textarea id="groupNote" spellcheck="false" placeholder="輸入一般文字備註"></textarea>
+                                </label>
+                            </div>
+                            <div class="form-actions">
+                                <button type="button" class="danger" id="deleteGroupBtn"><i class="fa-solid fa-trash"></i> 刪除</button>
+                                <button type="submit" class="primary"><i class="fa-solid fa-floppy-disk"></i> 儲存</button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="tab-panel" data-group-tab-panel="permissions" hidden>
+                        <div class="permission-actions">
+                            <button type="button" id="addPermissionBtn"><i class="fa-solid fa-plus"></i> 新增權限</button>
+                            <button type="button" class="primary" id="savePermissionsBtn"><i class="fa-solid fa-floppy-disk"></i> 儲存權限</button>
+                        </div>
+                        <div class="permission-list" id="permissionList"></div>
+                    </div>
+                </div>
+            </section>
+        </section>
+    </main>
+
+    <script src="/assets/js/api.js?v=3"></script>
+    <script>
+        const accountList = document.getElementById("accountList");
+        const accountSummary = document.getElementById("accountSummary");
+        const groupSummary = document.getElementById("groupSummary");
+        const runtimeStatus = document.getElementById("runtimeStatus");
+        const selectedStatus = document.getElementById("selectedStatus");
+        const enabledSwitchLabel = document.getElementById("enabledSwitchLabel");
+        const permissionList = document.getElementById("permissionList");
+        const accountForm = document.getElementById("accountForm");
+        const saveAccountBtn = document.getElementById("saveAccountBtn");
+        const groupList = document.getElementById("groupList");
+        const groupForm = document.getElementById("groupForm");
+        const groupEnabledLabel = document.getElementById("groupEnabledLabel");
+        const fields = {
+            accountId: document.getElementById("accountId"),
+            displayName: document.getElementById("displayName"),
+            email: document.getElementById("email"),
+            role: document.getElementById("role"),
+            groupIds: document.getElementById("groupIds"),
+            password: document.getElementById("password"),
+            confirmPassword: document.getElementById("confirmPassword"),
+            enabled: document.getElementById("enabled"),
+            note: document.getElementById("note"),
+            groupId: document.getElementById("groupId"),
+            groupName: document.getElementById("groupName"),
+            groupEnabled: document.getElementById("groupEnabled"),
+            groupNote: document.getElementById("groupNote")
+        };
+
+        let accounts = [];
+        let groups = [];
+        let selectedId = "";
+        let selectedGroupId = "";
+        let permissions = [];
+        const builtInPermissionPlugins = [
+            { id: "system-settings", name: "系統設定" },
+            { id: "smart-qa", name: "智慧問答" }
+        ];
+        let pluginOptions = [{ id: "*", name: "全部 Plugin" }, ...builtInPermissionPlugins];
+        let creating = false;
+        let creatingGroup = false;
+
+        function authHeadersFromCookie() {
+            const names = ["agentic_auth_token", "auth_token", "authToken", "token", "Authentication", "Authorization"];
+            const cookies = String(document.cookie || "").split(";").map((part) => part.trim()).filter(Boolean);
+            for (const name of names) {
+                const found = cookies.find((cookie) => cookie.startsWith(`${encodeURIComponent(name)}=`) || cookie.startsWith(`${name}=`));
+                if (!found) continue;
+                const raw = found.slice(found.indexOf("=") + 1);
+                let token = "";
+                try {
+                    token = decodeURIComponent(raw).trim();
+                } catch {
+                    token = raw.trim();
+                }
+                if (!token) continue;
+                const value = token.toLowerCase().startsWith("bearer ") ? token : `Bearer ${token}`;
+                return { Authentication: value, Authorization: value };
+            }
+            return {};
+        }
+
+        async function rawFetchJSON(url, options = {}) {
+            const headers = { ...authHeadersFromCookie(), ...(options.headers || {}) };
+            if (!(options.body instanceof FormData)) headers["Content-Type"] = "application/json";
+            const response = await fetch(url, { credentials: "same-origin", ...options, headers });
+            const text = await response.text();
+            let data = {};
+            try {
+                data = text ? JSON.parse(text) : {};
+            } catch (error) {
+                data = { success: false, error: text || error.message };
+            }
+            if (!response.ok && !data.error) data.error = `HTTP ${response.status}`;
+            return data;
+        }
+
+        async function accountApi(path, options = {}) {
+            const normalized = String(path || "").startsWith("/") ? String(path || "") : `/${path || ""}`;
+            const request = {
+                ...options,
+                headers: {
+                    ...authHeadersFromCookie(),
+                    ...(options.headers || {})
+                }
+            };
+            if (typeof window.AgenticTalkAPI?.fetchPlugin === "function") {
+                return window.AgenticTalkAPI.fetchPlugin("account-manager", `/api/account-manager${normalized}`, request);
+            }
+            if (typeof window.AgenticTalkAPI?.apiFetch === "function") {
+                return window.AgenticTalkAPI.apiFetch(`/api/account-manager${normalized}`, request);
+            }
+            return rawFetchJSON(`/api/account-manager${normalized}`, request);
+        }
+
+        async function mainApi(path, options = {}) {
+            const normalized = String(path || "").startsWith("/") ? String(path || "") : `/${path || ""}`;
+            const request = {
+                ...options,
+                headers: {
+                    ...authHeadersFromCookie(),
+                    ...(options.headers || {})
+                }
+            };
+            if (typeof window.AgenticTalkAPI?.apiFetch === "function") {
+                return window.AgenticTalkAPI.apiFetch(normalized, request);
+            }
+            return rawFetchJSON(normalized, request);
+        }
+
+        function setRuntime(status, text, icon) {
+            runtimeStatus.className = `status-pill ${status || ""}`.trim();
+            runtimeStatus.innerHTML = `<i class="fa-solid ${icon || "fa-circle"}"></i> ${escapeHtml(text)}`;
+        }
+
+        function setSelectedStatus(account) {
+            if (!account) {
+                selectedStatus.classList.toggle("warn", !creating);
+                fields.enabled.disabled = !creating;
+                enabledSwitchLabel.textContent = creating ? "啟用" : "未選取";
+                return;
+            }
+            fields.enabled.disabled = false;
+            fields.enabled.checked = account.enabled !== false;
+            enabledSwitchLabel.textContent = fields.enabled.checked ? "啟用" : "停用";
+        }
+
+        function printResult(title, data) {
+            console.debug(title, data);
+        }
+
+        function showSaveConfirmation(button) {
+            if (!button) return;
+            const originalHTML = button.dataset.originalHtml || button.innerHTML;
+            button.dataset.originalHtml = originalHTML;
+            button.classList.remove("is-confirmed");
+            void button.offsetWidth;
+            button.classList.add("is-confirmed");
+            button.innerHTML = `<i class="fa-solid fa-circle-check"></i> 已儲存`;
+            window.clearTimeout(button._confirmTimer);
+            button._confirmTimer = window.setTimeout(() => {
+                button.classList.remove("is-confirmed");
+                button.innerHTML = originalHTML;
+            }, 1300);
+        }
+
+        function activateTab(tabName) {
+            document.querySelectorAll("[data-tab]").forEach((button) => {
+                const active = button.dataset.tab === tabName;
+                button.classList.toggle("active", active);
+                button.setAttribute("aria-selected", active ? "true" : "false");
+            });
+            document.querySelectorAll("[data-tab-panel]").forEach((panel) => {
+                panel.hidden = panel.dataset.tabPanel !== tabName;
+            });
+        }
+
+        function activateMainTab(tabName) {
+            const name = tabName === "groups" ? "groups" : "accounts";
+            document.querySelectorAll("[data-main-tab]").forEach((button) => {
+                const active = button.dataset.mainTab === name;
+                button.classList.toggle("active", active);
+                button.setAttribute("aria-selected", active ? "true" : "false");
+            });
+            document.querySelectorAll("[data-main-panel]").forEach((panel) => {
+                panel.hidden = panel.dataset.mainPanel !== name;
+            });
+        }
+
+        function activateGroupTab(tabName) {
+            const name = tabName === "permissions" ? "permissions" : "profile";
+            document.querySelectorAll("[data-group-tab]").forEach((button) => {
+                const active = button.dataset.groupTab === name;
+                button.classList.toggle("active", active);
+                button.setAttribute("aria-selected", active ? "true" : "false");
+            });
+            document.querySelectorAll("[data-group-tab-panel]").forEach((panel) => {
+                panel.hidden = panel.dataset.groupTabPanel !== name;
+            });
+        }
+
+        function renderAccounts() {
+            const query = document.getElementById("accountSearch").value.trim().toLowerCase();
+            const filtered = accounts.filter((account) => {
+                const text = [account.id, account.username, account.display_name, account.email, account.role, account.note].join(" ").toLowerCase();
+                return !query || text.includes(query);
+            });
+            accountSummary.textContent = `${accounts.length} 個帳號`;
+            if (!filtered.length) {
+                accountList.innerHTML = `<div class="empty">沒有符合條件的帳號</div>`;
+                return;
+            }
+            accountList.innerHTML = filtered.map((account) => `
+                <button class="account-item ${account.id === selectedId ? "active" : ""}" type="button" data-account-id="${escapeHtml(account.id)}">
+                    <span class="account-main">
+                        <span class="account-name">${escapeHtml(account.display_name || account.username)}</span>
+                        <span class="account-meta">${escapeHtml(account.username)} · ${escapeHtml(account.role || "user")} · ${account.enabled ? "啟用" : "停用"}</span>
+                    </span>
+                </button>
+            `).join("");
+        }
+
+        function renderGroups() {
+            const query = document.getElementById("groupSearch").value.trim().toLowerCase();
+            const filtered = groups.filter((group) => {
+                const text = [group.id, group.name, group.note].join(" ").toLowerCase();
+                return !query || text.includes(query);
+            });
+            groupSummary.textContent = `${groups.length} 個群組`;
+            if (!filtered.length) {
+                groupList.innerHTML = `<div class="empty">沒有符合條件的群組</div>`;
+                return;
+            }
+            groupList.innerHTML = filtered.map((group) => `
+                <button class="account-item ${group.id === selectedGroupId ? "active" : ""}" type="button" data-group-id="${escapeHtml(group.id)}">
+                    <span class="account-main">
+                        <span class="account-name">${escapeHtml(group.name || group.id)}</span>
+                        <span class="account-meta">${escapeHtml(group.id)} · ${group.enabled ? "啟用" : "停用"} · ${(group.permissions || []).length} 項權限</span>
+                    </span>
+                </button>
+            `).join("");
+        }
+
+        function renderGroupOptions(selected = []) {
+            const selectedSet = new Set((selected || []).map((id) => String(id)));
+            if (!groups.length) {
+                fields.groupIds.innerHTML = `<div class="checkbox-empty">尚未建立群組</div>`;
+                return;
+            }
+            fields.groupIds.innerHTML = groups.map((group) => `
+                <label class="checkbox-item">
+                    <input type="checkbox" value="${escapeHtml(group.id)}" ${selectedSet.has(group.id) ? "checked" : ""}>
+                    <span>${escapeHtml(group.name || group.id)}</span>
+                </label>
+            `).join("");
+        }
+
+        function renderPluginOptions(selectedID = "") {
+            const options = mergePluginOptions(pluginOptions, permissions);
+            const selected = String(selectedID || "").trim();
+            return options.map((plugin) => `
+                <option value="${escapeHtml(plugin.id)}" ${plugin.id === selected ? "selected" : ""}>
+                    ${escapeHtml(`${plugin.name || plugin.id} (${plugin.id})`)}
+                </option>
+            `).join("");
+        }
+
+        function emptyAccount() {
+            return {
+                id: "",
+                username: "",
+                display_name: "",
+                email: "",
+                role: "user",
+                enabled: true,
+                note: "",
+                group_ids: [],
+                password_set: false,
+                metadata: {}
+            };
+        }
+
+        function selectAccount(id) {
+            creating = false;
+            selectedId = id;
+            const account = accounts.find((item) => item.id === id) || emptyAccount();
+            fillForm(account);
+            setSelectedStatus(account);
+            renderAccounts();
+        }
+
+        function startNewAccount() {
+            creating = true;
+            selectedId = "";
+            fillForm(emptyAccount());
+            setSelectedStatus(null);
+            renderAccounts();
+            activateTab("profile");
+            fields.accountId.focus();
+        }
+
+        function fillForm(account) {
+            fields.accountId.value = account.id || "";
+            fields.accountId.disabled = !creating && Boolean(account.id);
+            fields.displayName.value = account.display_name || "";
+            fields.email.value = account.email || "";
+            fields.role.value = account.role || "user";
+            fields.password.value = "";
+            fields.confirmPassword.value = "";
+            fields.enabled.checked = account.enabled !== false;
+            enabledSwitchLabel.textContent = fields.enabled.checked ? "啟用" : "停用";
+            fields.note.value = accountNote(account);
+            renderGroupOptions(account.group_ids || []);
+        }
+
+        function readAccountPayload() {
+            const accountID = fields.accountId.value.trim();
+            const payload = {
+                id: accountID,
+                username: accountID,
+                display_name: fields.displayName.value.trim(),
+                email: fields.email.value.trim(),
+                role: fields.role.value.trim(),
+                enabled: fields.enabled.checked,
+                note: fields.note.value.trim(),
+                group_ids: [...fields.groupIds.querySelectorAll("input[type='checkbox']:checked")].map((input) => input.value),
+                metadata: selectedAccountMetadata()
+            };
+            return payload;
+        }
+
+        function isReservedAccountId(value) {
+            return String(value || "").trim().toLowerCase() === "root";
+        }
+
+        function accountNote(account) {
+            if (typeof account?.note === "string" && account.note.trim()) return account.note;
+            const metadata = account?.metadata || {};
+            if (typeof metadata.note === "string" && metadata.note.trim()) return metadata.note;
+            if (typeof metadata.source === "string" && metadata.source.trim()) return metadata.source;
+            return "";
+        }
+
+        function selectedAccountMetadata() {
+            const account = accounts.find((item) => item.id === selectedId);
+            return account?.metadata || {};
+        }
+
+        function emptyGroup() {
+            return {
+                id: "",
+                name: "",
+                enabled: true,
+                note: "",
+                permissions: []
+            };
+        }
+
+        function selectGroup(id) {
+            creatingGroup = false;
+            selectedGroupId = id;
+            const group = groups.find((item) => item.id === id) || emptyGroup();
+            fillGroupForm(group);
+            permissions = normalizePermissions(group.permissions || []);
+            renderPermissions();
+            renderGroups();
+        }
+
+        function startNewGroup() {
+            creatingGroup = true;
+            selectedGroupId = "";
+            permissions = [];
+            fillGroupForm(emptyGroup());
+            renderPermissions();
+            renderGroups();
+            activateGroupTab("profile");
+            fields.groupName.focus();
+        }
+
+        function fillGroupForm(group) {
+            fields.groupId.value = group.id || "";
+            fields.groupId.disabled = !creatingGroup && Boolean(group.id);
+            fields.groupName.value = group.name || "";
+            fields.groupEnabled.checked = group.enabled !== false;
+            groupEnabledLabel.textContent = fields.groupEnabled.checked ? "啟用" : "停用";
+            fields.groupNote.value = group.note || "";
+        }
+
+        function readGroupPayload() {
+            return {
+                id: fields.groupId.value.trim(),
+                name: fields.groupName.value.trim(),
+                enabled: fields.groupEnabled.checked,
+                note: fields.groupNote.value.trim(),
+                permissions: normalizePermissions(permissions)
+            };
+        }
+
+        function normalizePermissions(input) {
+            return (Array.isArray(input) ? input : []).map((item) => ({
+                plugin_id: String(item.plugin_id || "").trim(),
+                plugin_name: String(item.plugin_name || "").trim(),
+                enabled: item.enabled !== false,
+                scopes: Array.isArray(item.scopes)
+                    ? item.scopes.map((scope) => String(scope || "").trim()).filter(Boolean)
+                    : String(item.scopes || "").split(",").map((scope) => scope.trim()).filter(Boolean),
+                note: String(item.note || "").trim()
+            })).filter((item) => item.plugin_id);
+        }
+
+        function permissionLevelFromScopes(scopes = []) {
+            const set = new Set((Array.isArray(scopes) ? scopes : []).map((scope) => String(scope || "").trim().toLowerCase()).filter(Boolean));
+            if (!set.size || set.has("none")) return "none";
+            if (set.has("admin") || set.has("delete") || set.has("*")) return "full";
+            if (set.has("write") || set.has("manage")) return "write";
+            return "read";
+        }
+
+        function scopesFromPermissionLevel(level) {
+            switch (String(level || "").trim().toLowerCase()) {
+                case "read":
+                    return ["read"];
+                case "write":
+                    return ["read", "write"];
+                case "full":
+                    return ["read", "write", "delete", "admin"];
+                case "none":
+                default:
+                    return [];
+            }
+        }
+
+        function renderScopeOptions(scopes = []) {
+            const selected = permissionLevelFromScopes(scopes);
+            const options = [
+                ["none", "不顯示"],
+                ["read", "唯讀"],
+                ["write", "讀寫"],
+                ["full", "完整權限"]
+            ];
+            return options.map(([value, label]) => `
+                <option value="${value}" ${value === selected ? "selected" : ""}>${label}</option>
+            `).join("");
+        }
+
+        function normalizePluginOption(input) {
+            const id = String(input?.id || input?.plugin_id || input?.name || input?.code || "").trim();
+            if (!id) return null;
+            const ui = input?.ui || {};
+            const name = String(input?.display_name || input?.plugin_name || input?.title || ui.title || input?.name || id).trim();
+            return { id, name };
+        }
+
+        function mergePluginOptions(base, permissionSource = []) {
+            const merged = [{ id: "*", name: "全部 Plugin" }];
+            const seen = new Set(["*"]);
+            for (const source of [...builtInPermissionPlugins, ...(base || []), ...(permissionSource || []).map((permission) => ({
+                id: permission.plugin_id,
+                name: permission.plugin_name
+            }))]) {
+                const plugin = normalizePluginOption(source);
+                if (!plugin || seen.has(plugin.id)) continue;
+                seen.add(plugin.id);
+                merged.push(plugin);
+            }
+            return merged;
+        }
+
+        function extractPluginList(payload) {
+            const candidates = [
+                payload?.plugins,
+                payload?.items,
+                payload?.data?.plugins,
+                payload?.data?.items,
+                payload?.plugin_list,
+                Array.isArray(payload) ? payload : null
+            ];
+            for (const candidate of candidates) {
+                if (Array.isArray(candidate)) {
+                    return candidate.map(normalizePluginOption).filter(Boolean);
+                }
+            }
+            return [];
+        }
+
+        async function loadPluginOptions() {
+            const endpoints = ["/api/plugins", "/api/plugin/list", "/api/plugins/list", "/api/plugin"];
+            for (const endpoint of endpoints) {
+                try {
+                    const data = await mainApi(endpoint, { method: "GET", cache: "no-store" });
+                    const plugins = extractPluginList(data);
+                    if (plugins.length) {
+                        pluginOptions = mergePluginOptions(plugins);
+                        return;
+                    }
+                } catch {
+                    // 主系統版本可能使用不同 plugin list API，逐一嘗試後保留既有選項。
+                }
+            }
+            pluginOptions = mergePluginOptions(pluginOptions, permissions);
+        }
+
+        function renderPermissions() {
+            if (!permissions.length) {
+                permissionList.innerHTML = `<div class="empty">尚未設定 Plugin 權限</div>`;
+                return;
+            }
+            permissionList.innerHTML = permissions.map((permission, index) => `
+                <div class="permission-row" data-permission-index="${index}">
+                    <label>
+                        Plugin ID
+                        <select data-permission-field="plugin_id">
+                            ${renderPluginOptions(permission.plugin_id)}
+                        </select>
+                    </label>
+                    <label>
+                        Scopes
+                        <select data-permission-field="scopes">
+                            ${renderScopeOptions(permission.scopes)}
+                        </select>
+                    </label>
+                    <label class="check-row">
+                        <input type="checkbox" data-permission-field="enabled" ${permission.enabled !== false ? "checked" : ""}>
+                        啟用
+                    </label>
+                    <button class="icon danger" type="button" title="刪除權限" aria-label="刪除權限" data-remove-permission="${index}">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </div>
+            `).join("");
+        }
+
+        function syncPermissionInputs() {
+            const rows = [...permissionList.querySelectorAll("[data-permission-index]")];
+            permissions = rows.map((row) => {
+                const get = (field) => row.querySelector(`[data-permission-field="${field}"]`);
+                const selectedPlugin = pluginOptions.find((plugin) => plugin.id === get("plugin_id")?.value.trim());
+                return {
+                    plugin_id: get("plugin_id")?.value.trim() || "",
+                    plugin_name: selectedPlugin?.name || "",
+                    enabled: Boolean(get("enabled")?.checked),
+                    scopes: scopesFromPermissionLevel(get("scopes")?.value)
+                };
+            }).filter((item) => item.plugin_id);
+        }
+
+        async function loadAccounts() {
+            setRuntime("", "檢查中", "fa-circle-notch fa-spin");
+            try {
+                const status = await accountApi("/plugin/status", { method: "GET", cache: "no-store" });
+                if (!status?.success) throw new Error(status?.error || "狀態讀取失敗");
+                const data = await accountApi("/accounts", { method: "GET", cache: "no-store" });
+                if (!data?.success) throw new Error(data?.error || "帳號讀取失敗");
+                const groupData = await accountApi("/groups", { method: "GET", cache: "no-store" });
+                if (!groupData?.success) throw new Error(groupData?.error || "群組讀取失敗");
+                accounts = Array.isArray(data.accounts) ? data.accounts : [];
+                groups = Array.isArray(groupData.groups) ? groupData.groups : [];
+                await loadPluginOptions();
+                renderGroupOptions();
+                if (selectedId && accounts.some((item) => item.id === selectedId)) {
+                    selectAccount(selectedId);
+                } else if (accounts.length) {
+                    selectAccount(accounts[0].id);
+                } else {
+                    startNewAccount();
+                }
+                if (selectedGroupId && groups.some((item) => item.id === selectedGroupId)) {
+                    selectGroup(selectedGroupId);
+                } else if (groups.length) {
+                    selectGroup(groups[0].id);
+                } else {
+                    startNewGroup();
+                }
+                activateMainTab(document.querySelector("[data-main-tab].active")?.dataset.mainTab || "accounts");
+                setRuntime("ok", "已連線", "fa-circle-check");
+                printResult("GET /accounts + /groups", { accounts: data, groups: groupData });
+            } catch (error) {
+                setRuntime("error", error?.message || "連線失敗", "fa-triangle-exclamation");
+                printResult("載入失敗", { success: false, error: error?.message || String(error) });
+            }
+        }
+
+        async function saveAccount(event) {
+            event?.preventDefault();
+            const payload = readAccountPayload();
+            if (!payload.id) {
+                window.alert("帳號 ID 不可空白。");
+                return;
+            }
+            if (isReservedAccountId(payload.id)) {
+                window.alert("root 為系統保留帳號 ID，不可使用。");
+                fields.accountId.focus();
+                return;
+            }
+            const password = fields.password.value;
+            const confirmPassword = fields.confirmPassword.value;
+            if (password || confirmPassword) {
+                if (password !== confirmPassword) {
+                    window.alert("密碼與確認密碼不一致。");
+                    fields.confirmPassword.focus();
+                    return;
+                }
+                payload.password = password;
+            }
+            const path = creating ? "/accounts" : `/accounts/${encodeURIComponent(selectedId)}`;
+            const method = creating ? "POST" : "PUT";
+            const data = await accountApi(path, { method, body: JSON.stringify(payload) });
+            printResult(`${method} ${path}`, data);
+            if (!data?.success) {
+                window.alert(data?.error || "儲存失敗。");
+                return;
+            }
+            creating = false;
+            selectedId = data.account?.id || payload.id || selectedId;
+            await loadAccounts();
+            showSaveConfirmation(saveAccountBtn);
+        }
+
+        async function deleteAccount() {
+            if (!selectedId || creating) return;
+            const account = accounts.find((item) => item.id === selectedId);
+            const label = account?.display_name || account?.username || selectedId;
+            if (!window.confirm(`確定要刪除「${label}」？`)) return;
+            const path = `/accounts/${encodeURIComponent(selectedId)}`;
+            const data = await accountApi(path, { method: "DELETE" });
+            printResult(`DELETE ${path}`, data);
+            if (!data?.success) {
+                window.alert(data?.error || "刪除失敗。");
+                return;
+            }
+            selectedId = "";
+            await loadAccounts();
+        }
+
+        async function saveGroup(event) {
+            event?.preventDefault();
+            syncPermissionInputs();
+            const payload = readGroupPayload();
+            if (!payload.name) {
+                window.alert("群組名稱不可空白。");
+                return;
+            }
+            const path = creatingGroup ? "/groups" : `/groups/${encodeURIComponent(selectedGroupId)}`;
+            const method = creatingGroup ? "POST" : "PUT";
+            const data = await accountApi(path, { method, body: JSON.stringify(payload) });
+            printResult(`${method} ${path}`, data);
+            if (!data?.success) {
+                window.alert(data?.error || "群組儲存失敗。");
+                return;
+            }
+            creatingGroup = false;
+            selectedGroupId = data.group?.id || payload.id || selectedGroupId;
+            await loadAccounts();
+        }
+
+        async function deleteGroup() {
+            if (!selectedGroupId || creatingGroup) return;
+            const group = groups.find((item) => item.id === selectedGroupId);
+            const label = group?.name || selectedGroupId;
+            if (!window.confirm(`確定要刪除「${label}」？`)) return;
+            const path = `/groups/${encodeURIComponent(selectedGroupId)}`;
+            const data = await accountApi(path, { method: "DELETE" });
+            printResult(`DELETE ${path}`, data);
+            if (!data?.success) {
+                window.alert(data?.error || "群組刪除失敗。");
+                return;
+            }
+            selectedGroupId = "";
+            await loadAccounts();
+        }
+
+        async function savePermissions() {
+            if (!selectedGroupId || creatingGroup) {
+                window.alert("請先儲存群組。");
+                return;
+            }
+            syncPermissionInputs();
+            const path = `/groups/${encodeURIComponent(selectedGroupId)}/permissions`;
+            const data = await accountApi(path, { method: "PUT", body: JSON.stringify({ permissions }) });
+            printResult(`PUT ${path}`, data);
+            if (!data?.success) {
+                window.alert(data?.error || "權限儲存失敗。");
+                return;
+            }
+            await loadAccounts();
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? "")
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+        }
+
+        document.querySelectorAll("[data-tab]").forEach((button) => {
+            button.addEventListener("click", () => activateTab(button.dataset.tab));
+        });
+        document.querySelectorAll("[data-main-tab]").forEach((button) => {
+            button.addEventListener("click", () => activateMainTab(button.dataset.mainTab));
+        });
+        document.querySelectorAll("[data-group-tab]").forEach((button) => {
+            button.addEventListener("click", () => activateGroupTab(button.dataset.groupTab));
+        });
+
+        accountList.addEventListener("click", (event) => {
+            const button = event.target.closest("[data-account-id]");
+            if (button) selectAccount(button.dataset.accountId);
+        });
+        groupList.addEventListener("click", (event) => {
+            const button = event.target.closest("[data-group-id]");
+            if (button) selectGroup(button.dataset.groupId);
+        });
+
+        permissionList.addEventListener("click", (event) => {
+            const button = event.target.closest("[data-remove-permission]");
+            if (!button) return;
+            syncPermissionInputs();
+            permissions.splice(Number(button.dataset.removePermission), 1);
+            renderPermissions();
+        });
+        document.getElementById("accountSearch").addEventListener("input", renderAccounts);
+        document.getElementById("groupSearch").addEventListener("input", renderGroups);
+        document.getElementById("reloadBtn").addEventListener("click", loadAccounts);
+        document.getElementById("reloadGroupsBtn").addEventListener("click", loadAccounts);
+        document.getElementById("newAccountBtn").addEventListener("click", startNewAccount);
+        document.getElementById("newGroupBtn").addEventListener("click", startNewGroup);
+        document.getElementById("deleteBtn").addEventListener("click", deleteAccount);
+        document.getElementById("deleteGroupBtn").addEventListener("click", deleteGroup);
+        document.getElementById("addPermissionBtn").addEventListener("click", () => {
+            syncPermissionInputs();
+            permissions.push({ plugin_id: "", plugin_name: "", enabled: true, scopes: [] });
+            renderPermissions();
+        });
+        document.getElementById("savePermissionsBtn").addEventListener("click", savePermissions);
+        fields.enabled.addEventListener("change", () => {
+            enabledSwitchLabel.textContent = fields.enabled.checked ? "啟用" : "停用";
+        });
+        fields.groupEnabled.addEventListener("change", () => {
+            groupEnabledLabel.textContent = fields.groupEnabled.checked ? "啟用" : "停用";
+        });
+        accountForm.addEventListener("submit", saveAccount);
+        groupForm.addEventListener("submit", saveGroup);
+
+        document.addEventListener("DOMContentLoaded", () => {
+            if (typeof window.AgenticTalkAPI?.ensureAuthOrRedirect === "function") {
+                const allowed = window.AgenticTalkAPI.ensureAuthOrRedirect();
+                if (!allowed) return;
+            }
+            loadAccounts();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+{
+  "version": "0.1.0",
+  "encryption": {
+    "key": "account-manager-default-aes-key-change-me"
+  },
+  "password_policy": {
+    "min_length": 6,
+    "require_enabled_account": true
+  },
+  "accounts": [
+    {
+      "id": "admin",
+      "username": "admin",
+      "display_name": "系統管理員",
+      "email": "admin@example.local",
+      "role": "admin",
+      "enabled": true,
+      "note": "由 config.default.json 建立的預設管理員帳號",
+      "group_ids": ["administrators"],
+      "password_aes": "aes-gcm:v1:uX4L4hdz++KX9DgJu/lsDgp+V0S40n0wmsnH5MrN0KkQ1eg0",
+      "created_at": "2026-05-27T00:00:00+08:00",
+      "updated_at": "2026-05-27T00:00:00+08:00",
+      "permissions": []
+    }
+  ],
+  "groups": [
+    {
+      "id": "administrators",
+      "name": "系統管理群組",
+      "enabled": true,
+      "note": "管理員預設群組",
+      "created_at": "2026-05-27T00:00:00+08:00",
+      "updated_at": "2026-05-27T00:00:00+08:00",
+      "permissions": [
+        {
+          "plugin_id": "*",
+          "plugin_name": "全部 Plugin",
+          "enabled": true,
+          "scopes": ["read", "write", "admin"],
+          "note": "預設管理群組可存取所有 plugin"
+        }
+      ]
+    }
+  ]
+}
