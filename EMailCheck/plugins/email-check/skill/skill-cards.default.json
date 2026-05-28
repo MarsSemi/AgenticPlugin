@@ -1,0 +1,32 @@
+{
+  "cards": [
+    {
+      "id": "status",
+      "title": "EMAIL 外掛狀態",
+      "description": "檢查 service、config、帳號與載入狀態。",
+      "icon": "fa-heart-pulse",
+      "prompt": "請根據目前 EMAIL 檢查 plugin 的狀態、設定、帳號清單與 API catalog，判斷外掛是否可正常運作，並列出需要修正或確認的項目。"
+    },
+    {
+      "id": "account",
+      "title": "信箱帳號設定",
+      "description": "整理 IMAP/SMTP 設定與常見登入檢查步驟。",
+      "icon": "fa-envelope-circle-check",
+      "prompt": "請根據目前 EMAIL 檢查 plugin 的 config，說明信箱帳號需要填寫哪些 IMAP/SMTP 欄位，以及如何使用登入檢查 API 驗證。"
+    },
+    {
+      "id": "read",
+      "title": "讀取與檢查郵件",
+      "description": "列出讀取信件、檢查未讀與查詢條件範例。",
+      "icon": "fa-magnifying-glass",
+      "prompt": "請依目前 EMAIL 檢查 plugin 可用 API，整理讀取信件與檢查未讀郵件的 CallPlugin / fetchPlugin 呼叫範例。"
+    },
+    {
+      "id": "reply",
+      "title": "回覆信件流程",
+      "description": "說明如何讀取原信後透過 SMTP 回覆。",
+      "icon": "fa-reply",
+      "prompt": "請根據 EMAIL 檢查 plugin 的 API，說明如何針對指定 UID 信件產生回覆並透過 SMTP 寄出，包含必要欄位與錯誤處理建議。"
+    }
+  ]
+}

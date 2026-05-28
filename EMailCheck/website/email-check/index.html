@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EMAIL 檢查</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <a class="back-link" href="/main.html" aria-label="回到主畫面">
+        <span class="back-icon" aria-hidden="true">←</span>
+        <span>回到主畫面</span>
+      </a>
+      <div class="actions">
+        <span id="serviceStatus" class="status-pill checking" role="status" aria-live="polite">
+          <i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>
+          <span>檢查中</span>
+        </span>
+      </div>
+    </header>
+
+    <section class="layout">
+      <aside class="sidebar">
+        <nav class="module-nav" aria-label="EMAIL 功能">
+          <button class="module-tab active" type="button" data-module-target="accountModule">
+	            <span>新增帳號</span>
+            <small>管理 IMAP/SMTP 登入設定</small>
+          </button>
+	          <button class="module-tab" type="button" data-module-target="mailModule">
+		            <span>手動檢視</span>
+	            <small>讀取、檢查與回覆信件</small>
+	          </button>
+	          <button class="module-tab" type="button" data-module-target="autoCheckModule">
+	            <span>信件自動檢測</span>
+	            <small>定時讀取信件並預留 LINE 通知</small>
+	          </button>
+	        </nav>
+	      </aside>
+
+      <section class="workspace">
+        <section id="accountModule" class="module active" aria-label="新增 EMAIL 帳號">
+          <div class="account-layout">
+            <section class="panel account-list-panel">
+              <div class="panel-title">
+                <h3>已建立帳號</h3>
+                <button id="newAccountBtn" class="icon-button" type="button" aria-label="新增空白帳號" title="新增空白帳號">
+                  <span aria-hidden="true">+</span>
+                </button>
+              </div>
+              <div class="table-wrap">
+                <table class="account-table" aria-label="EMAIL 帳號">
+                  <thead>
+                    <tr>
+                      <th>狀態</th>
+                      <th>名稱</th>
+                      <th>Email</th>
+                    </tr>
+                  </thead>
+                  <tbody id="accountTableBody"></tbody>
+                </table>
+              </div>
+              <div class="row-actions">
+                <button id="loginBtn" type="button">登入檢查</button>
+                <button id="deleteAccountBtn" type="button" class="danger">刪除</button>
+              </div>
+              <div id="accountCheckMessage" class="inline-status" role="status" aria-live="polite"></div>
+            </section>
+
+            <form id="accountForm" class="panel form-grid">
+              <div class="panel-title">
+                <h3>帳號設定</h3>
+              </div>
+              <label>帳號 ID<input name="id" autocomplete="off"></label>
+              <label>名稱<input name="name" autocomplete="off"></label>
+              <label>Email<input name="email" type="email" autocomplete="username" required></label>
+              <label>寄件顯示名稱<input name="from_name" autocomplete="name"></label>
+              <label>登入帳號<input name="username" autocomplete="username" required></label>
+              <label>密碼 / App Password<input name="password" type="password" autocomplete="current-password" placeholder="留空沿用已儲存密碼"></label>
+              <label>預設資料夾<input name="default_folder" value="INBOX"></label>
+              <label class="check"><input name="enabled" type="checkbox">啟用</label>
+              <label>收信協定
+                <select name="incoming_protocol">
+                  <option value="imap">IMAP</option>
+                  <option value="pop3">POP3</option>
+                </select>
+              </label>
+              <div class="split">
+                <label><span id="incomingHostLabel">IMAP Host</span><input name="imap_host" placeholder="imap.example.com" required></label>
+                <label><span id="incomingPortLabel">IMAP Port</span><input name="imap_port" type="number" min="1" value="993"></label>
+              </div>
+              <div class="checks">
+                <label class="check"><input name="imap_tls" type="checkbox" checked><span id="incomingTlsLabel">IMAP TLS</span></label>
+                <label class="check"><input name="imap_start_tls" type="checkbox"><span id="incomingStartTlsLabel">IMAP STARTTLS</span></label>
+              </div>
+              <div class="split">
+                <label>SMTP Host<input name="smtp_host" placeholder="smtp.example.com"></label>
+                <label>SMTP Port<input name="smtp_port" type="number" min="1" value="465"></label>
+              </div>
+              <div class="checks">
+                <label class="check"><input name="smtp_tls" type="checkbox" checked>SMTP TLS</label>
+                <label class="check"><input name="smtp_start_tls" type="checkbox">SMTP STARTTLS</label>
+              </div>
+              <div id="accountStatus" class="form-status" role="status" aria-live="polite"></div>
+              <button id="saveAccountBtn" type="submit">儲存帳號</button>
+            </form>
+          </div>
+	        </section>
+
+	        <section id="mailModule" class="module" aria-label="檢視 EMAIL">
+	          <div class="panel toolbar">
+	            <label>帳號<select id="mailAccountSelect" aria-label="檢視 EMAIL 帳號"></select></label>
+	            <label>資料夾<input id="folderInput" value="INBOX"></label>
+            <label>天數<input id="sinceDaysInput" type="number" min="1" value="7"></label>
+            <label class="switch-field"><span>未讀</span><input id="unreadOnlyInput" type="checkbox" checked><span class="switch-control" aria-hidden="true"></span></label>
+            <button id="checkBtn" type="button">讀入</button>
+          </div>
+
+          <div class="mail-layout">
+            <section class="panel message-list">
+              <div class="message-list-header">
+                <h3 id="messageListTitle">信件 0/0</h3>
+                <button id="markAllReadBtn" class="ghost-button" type="button" disabled>全部已讀</button>
+              </div>
+              <div id="messageList" class="messages"></div>
+            </section>
+
+            <section class="panel message-detail">
+              <h3>內容與回覆</h3>
+              <div class="detail-tabs" role="tablist" aria-label="內容與回覆">
+                <button id="contentTabBtn" class="detail-tab active" type="button" role="tab" aria-selected="true" aria-controls="contentPanel" data-detail-tab="content">內容</button>
+                <button id="replyTabBtn" class="detail-tab" type="button" role="tab" aria-selected="false" aria-controls="replyPanel" data-detail-tab="reply">回覆</button>
+              </div>
+              <div id="contentPanel" class="detail-panel active" role="tabpanel" aria-labelledby="contentTabBtn">
+                <article id="messageDetail" class="detail-empty">尚未選取信件</article>
+              </div>
+              <div id="replyPanel" class="detail-panel" role="tabpanel" aria-labelledby="replyTabBtn" hidden>
+                <form id="replyForm" class="reply-form">
+                  <label>收件者<input name="to" placeholder="留空則回覆原寄件者"></label>
+                  <label>主旨<input name="subject"></label>
+                  <label>內容<textarea name="text" rows="8" placeholder="輸入回覆內容"></textarea></label>
+                  <div class="reply-actions">
+                    <button id="aiReplyBtn" class="icon-action" type="button" title="用 CHAT 產生或潤飾回覆"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i><span class="sr-only">用 CHAT 產生或潤飾回覆</span></button>
+                    <button class="reply-submit" type="submit">送出回覆</button>
+                  </div>
+                </form>
+              </div>
+            </section>
+          </div>
+	        </section>
+
+	        <section id="autoCheckModule" class="module" aria-label="信件自動檢測">
+	          <div class="auto-check-layout">
+	            <section class="panel auto-task-panel">
+	              <div class="panel-title">
+	                <h3 id="autoTaskListTitle">檢測任務 0</h3>
+	                <button id="newAutoTaskBtn" class="icon-button" type="button" aria-label="新增任務" title="新增任務">
+	                  <i class="fa-solid fa-plus" aria-hidden="true"></i>
+	                </button>
+	              </div>
+	              <div id="autoTaskList" class="auto-task-list"></div>
+	            </section>
+
+	            <section class="panel auto-result-panel">
+	              <div class="panel-title">
+	                <h3>執行結果</h3>
+	              </div>
+	              <article id="autoTaskResult" class="auto-result-empty">尚未選取任務</article>
+	            </section>
+	          </div>
+	        </section>
+	      </section>
+	    </section>
+
+    <pre id="log" class="log" aria-live="polite" hidden></pre>
+  </main>
+  <dialog id="aiReplyDialog" class="ai-dialog" aria-labelledby="aiReplyDialogTitle">
+    <div class="ai-dialog-card">
+      <div class="ai-orbit" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+      <div>
+        <h3 id="aiReplyDialogTitle">CHAT 正在產生回覆</h3>
+        <p id="aiReplyStatus">正在分析原始信件與回覆草稿...</p>
+      </div>
+      <button id="cancelAiReplyBtn" class="ghost-button" type="button">取消</button>
+    </div>
+	  </dialog>
+	  <dialog id="autoTaskDialog" class="task-dialog" aria-labelledby="autoTaskDialogTitle">
+	    <form id="autoTaskForm" class="task-dialog-card">
+	      <div class="dialog-title">
+	        <div>
+	          <h3 id="autoTaskDialogTitle">編輯檢測任務</h3>
+	          <p>設定帳號、間隔、篩選條件與 LINE 預留資訊。</p>
+	        </div>
+	        <button id="closeAutoTaskDialogBtn" class="icon-button ghost-button" type="button" aria-label="關閉">
+	          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+	        </button>
+	      </div>
+	      <input name="id" type="hidden">
+	      <div class="task-form-grid">
+	        <label>帳號<select name="account_id" required></select></label>
+	        <label>任務名稱<input name="name" required></label>
+	        <label>檢查間隔（分鐘）<input name="interval_minutes" type="number" min="1" value="60"></label>
+	        <label>資料夾<input name="folder" value="INBOX"></label>
+	        <label>天數<input name="since_days" type="number" min="1" value="7"></label>
+	        <label class="switch-field"><span>啟用</span><input name="enabled" type="checkbox" checked><span class="switch-control" aria-hidden="true"></span></label>
+	        <label class="switch-field"><span>只讀未讀</span><input name="unread_only" type="checkbox" checked><span class="switch-control" aria-hidden="true"></span></label>
+	        <label class="full">主旨關鍵字<textarea name="subject_keywords" rows="2" placeholder="逗號或換行分隔"></textarea></label>
+	        <label class="full">寄件者關鍵字<textarea name="from_keywords" rows="2" placeholder="逗號或換行分隔"></textarea></label>
+	        <label class="full">內容關鍵字<textarea name="body_keywords" rows="2" placeholder="逗號或換行分隔"></textarea></label>
+	        <label class="full">PROMPT<textarea name="prompt" rows="5"></textarea></label>
+	        <label>LINE 聊天室 ID（預留）<input name="line_room_id"></label>
+	        <label class="switch-field"><span>LINE 通知</span><input name="line_enabled" type="checkbox"><span class="switch-control" aria-hidden="true"></span></label>
+	      </div>
+	      <div id="autoTaskStatus" class="form-status" role="status" aria-live="polite"></div>
+	      <div class="dialog-actions">
+	        <button id="cancelAutoTaskBtn" class="ghost-button" type="button">取消</button>
+	        <button id="saveAutoTaskBtn" type="submit"><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i><span>儲存</span></button>
+	      </div>
+	    </form>
+	  </dialog>
+	  <script src="/assets/js/api.js?v=3"></script>
+  <script>
+    if (typeof window.AgenticTalkAPI?.fetchPlugin !== "function") {
+      window.AgenticPluginDev = {
+        pluginId: "email-check",
+        pluginApiBase: "/api/email-check",
+        serviceURL: window.location.origin
+      };
+      document.write('<script src="/basepkg/host-adapter.js?v=1"><\/script>');
+    }
+  </script>
+	  <script defer src="./app.js?v=20260526-15"></script>
+	</body>
+	</html>

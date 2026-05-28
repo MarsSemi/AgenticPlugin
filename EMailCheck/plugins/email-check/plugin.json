@@ -1,0 +1,68 @@
+{
+  "id": "email-check",
+  "name": "EMAIL 檢查",
+  "version": "0.1.0",
+  "type": "service",
+  "auto_start": true,
+  "website_path": "./website/email-check/index.html",
+  "ui": {
+    "enabled": true,
+    "order": 40,
+    "website_path": "./website/email-check/index.html",
+    "href": "/email-check/index.html",
+    "code": "EMAIL",
+    "class": "email-check",
+    "title": "EMAIL 檢查",
+    "description": "透過 IMAP/POP3/SMTP 登入信箱，讀取信件、回覆信件並檢查郵件。",
+    "action": "進入 EMAIL 檢查",
+    "icon": "fa-solid fa-envelope-open-text",
+    "color": "teal"
+  },
+  "entry": "./plugins/email-check/bin/email-check-service",
+  "platform_entries": {
+    "darwin/arm64": "./plugins/email-check/bin/email-check-service_darwin_arm64",
+    "darwin/amd64": "./plugins/email-check/bin/email-check-service_darwin_amd64",
+    "linux/amd64": "./plugins/email-check/bin/email-check-service_linux_amd64",
+    "linux/arm64": "./plugins/email-check/bin/email-check-service_linux_arm64",
+    "windows/amd64": "./plugins/email-check/bin/email-check-service_windows_amd64.exe",
+    "windows/arm64": "./plugins/email-check/bin/email-check-service_windows_arm64.exe"
+  },
+  "source_entry": "./src/emailcheck/service",
+  "service_url": "http://127.0.0.1:18185",
+  "api_base": "/api/plugin/email-check",
+  "plugin_api_base": "/api/email-check",
+  "mcp_url": "http://127.0.0.1:18185/mcp",
+  "routes": ["/api/email-check"],
+  "runtime": {
+    "service": "email-check-service",
+    "addr": "127.0.0.1:18185",
+    "listen_addr": "127.0.0.1:18185",
+    "health": "/api/email-check/plugin/status",
+    "auth": "/api/email-check/plugin/auth",
+    "load": "/api/email-check/plugin/load",
+    "unload": "/api/email-check/plugin/unload",
+    "registration": "/api/email-check/plugin/registration",
+    "start_args": ["-config", "plugins/email-check/config.json"]
+  },
+  "invoke": {
+    "type": "CallPlugin",
+    "api_base": "/api/plugin/email-check",
+    "plugin_api_base": "/api/email-check"
+  },
+  "enabled": true,
+  "capabilities": [
+    "lifecycle",
+    "registration",
+    "host-auth",
+    "mcp",
+    "config",
+    "imap-login",
+    "imap-read",
+    "pop3-login",
+    "pop3-read",
+    "smtp-reply",
+    "mail-check",
+    "skill-guide",
+    "chat-guide"
+  ]
+}

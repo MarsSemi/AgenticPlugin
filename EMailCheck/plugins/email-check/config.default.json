@@ -1,0 +1,53 @@
+{
+  "version": "0.1.0",
+  "defaults": {
+    "folder": "INBOX",
+    "limit": 20,
+    "unread_only": true,
+    "since_days": 7
+  },
+  "features": {
+    "imap_login": true,
+    "imap_read": true,
+    "pop3_login": true,
+    "pop3_read": true,
+    "smtp_reply": true,
+    "mail_check": true,
+    "auto_check": true
+  },
+  "accounts": [
+    {
+      "id": "demo",
+      "name": "範例信箱",
+      "email": "user@example.com",
+      "from_name": "Example User",
+      "username": "user@example.com",
+      "password": "",
+      "default_folder": "INBOX",
+      "enabled": false,
+      "incoming_protocol": "imap",
+      "imap": {
+        "host": "ms.mailcloud.com.tw",
+        "port": 993,
+        "tls": true,
+        "start_tls": false,
+        "insecure_skip_verify": false
+      },
+      "pop3": {
+        "host": "ms.mailcloud.com.tw",
+        "port": 995,
+        "tls": true,
+        "start_tls": false,
+        "insecure_skip_verify": false
+      },
+      "smtp": {
+        "host": "smtp.example.com",
+        "port": 465,
+        "tls": true,
+        "start_tls": false,
+        "insecure_skip_verify": false
+      }
+    }
+  ],
+  "auto_checks": []
+}
