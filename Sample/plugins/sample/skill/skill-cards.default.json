@@ -1,0 +1,32 @@
+{
+  "cards": [
+    {
+      "id": "status",
+      "title": "外掛狀態診斷",
+      "description": "檢查 service、config、items 與載入狀態。",
+      "icon": "fa-heart-pulse",
+      "prompt": "請根據目前 Sample Plugin 的即時狀態、設定、items 與載入資訊，判斷外掛是否可正常運作，並列出需要修正或確認的項目。"
+    },
+    {
+      "id": "api",
+      "title": "API 串接建議",
+      "description": "產生 CallPlugin / fetchPlugin 呼叫範例。",
+      "icon": "fa-route",
+      "prompt": "請依目前 Sample Plugin 可用 API，整理前端透過 fetchPlugin 呼叫外掛的建議寫法，包含常見 GET / POST 範例與錯誤處理方式。"
+    },
+    {
+      "id": "mcp",
+      "title": "MCP 能力盤點",
+      "description": "整理工具、資源與 metadata 用法。",
+      "icon": "fa-plug-circle-bolt",
+      "prompt": "請根據目前 Sample Plugin 的 MCP metadata，說明它提供哪些工具、資源或能力，以及主服務可以如何透過 MCP 操作它。"
+    },
+    {
+      "id": "developer",
+      "title": "開發移植檢查",
+      "description": "檢查自定義 plugin 要替換的檔案與設定。",
+      "icon": "fa-code",
+      "prompt": "請把 Sample Plugin 當成開發模板，列出開發自定義 plugin 時需要調整的檔案、plugin.json 設定、API endpoint、MCP metadata 與部署注意事項。"
+    }
+  ]
+}

@@ -1,0 +1,1422 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sample Plugin · AgenticService</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+    <style>
+        :root {
+            --bg: #f5f7fb;
+            --panel: #ffffff;
+            --ink: #172033;
+            --muted: #64748b;
+            --line: #d9e2ef;
+            --brand: #1769aa;
+            --brand-soft: #e7f1fb;
+            --danger: #b91c1c;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--ink);
+            background: var(--bg);
+            font-family: "Noto Sans TC", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            letter-spacing: 0;
+        }
+
+        .page {
+            width: min(1180px, calc(100% - 36px));
+            margin: 0 auto;
+            padding: 24px 0 36px;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 16px;
+            margin-bottom: 18px;
+        }
+
+        .topbar .panel-tabs {
+            margin-left: 16px;
+        }
+
+        .topbar #runtimeStatus {
+            margin-left: auto;
+        }
+
+        .back-link,
+        button {
+            min-height: 38px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 0 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            background: #ffffff;
+            color: #334155;
+            cursor: pointer;
+            font: inherit;
+            font-size: 14px;
+            font-weight: 800;
+            text-decoration: none;
+        }
+
+        button.primary {
+            border-color: var(--brand);
+            background: var(--brand);
+            color: #ffffff;
+        }
+
+        button:disabled {
+            cursor: not-allowed;
+            opacity: 0.58;
+        }
+
+        .panel {
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: var(--panel);
+        }
+
+        h1 {
+            margin: 8px 0 8px;
+            font-size: 32px;
+            line-height: 1.2;
+            font-weight: 900;
+        }
+
+        .note {
+            color: var(--muted);
+            line-height: 1.7;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 360px minmax(0, 1fr);
+            gap: 18px;
+        }
+
+        .panel-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 16px 18px;
+            border-bottom: 1px solid var(--line);
+            font-weight: 900;
+        }
+
+        .panel-tabs {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px;
+            border: 1px solid #d7e1ee;
+            border-radius: 10px;
+            background: #f8fafc;
+        }
+
+        .panel-tab {
+            min-height: 32px;
+            padding: 0 12px;
+            border-color: transparent;
+            background: transparent;
+            color: #526178;
+            font-size: 13px;
+        }
+
+        .panel-tab.is-active {
+            border-color: #b8cce3;
+            background: #e7f1fb;
+            color: var(--brand);
+        }
+
+        .tab-panel[hidden] {
+            display: none;
+        }
+
+        .panel-body {
+            padding: 18px;
+        }
+
+        .actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .form {
+            display: grid;
+            gap: 10px;
+            margin-top: 16px;
+        }
+
+        label {
+            display: grid;
+            gap: 6px;
+            color: #334155;
+            font-size: 13px;
+            font-weight: 900;
+        }
+
+        input,
+        textarea {
+            width: 100%;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 10px 12px;
+            color: var(--ink);
+            font: inherit;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        textarea {
+            min-height: 88px;
+            resize: vertical;
+        }
+
+        .output {
+            min-height: 460px;
+            max-height: 640px;
+            overflow: auto;
+            margin: 0;
+            padding: 18px;
+            border-radius: 8px;
+            background: #f8fafc;
+            color: #26364d;
+            font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .chat-log {
+            min-height: 320px;
+            max-height: 460px;
+            overflow: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 14px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #f8fafc;
+        }
+
+        .chat-page .chat-log {
+            min-height: 500px;
+            max-height: none;
+        }
+
+        .sample-chat-workspace {
+            display: grid;
+            grid-template-columns: 330px minmax(0, 1fr);
+            gap: 16px;
+            align-items: stretch;
+        }
+
+        .sample-skill-pane,
+        .sample-chat-pane {
+            min-width: 0;
+        }
+
+        .sample-skill-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .sample-head-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .sample-skill-card {
+            min-height: 76px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 12px;
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #cbd5e1;
+            text-align: left;
+            background: #ffffff;
+            cursor: pointer;
+        }
+
+        .sample-skill-card:hover,
+        .sample-skill-card:focus-visible {
+            border-color: #9fc3e7;
+            background: #f4f9ff;
+        }
+
+        .sample-skill-card-main {
+            flex: 1;
+            min-width: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .sample-skill-actions {
+            flex: 0 0 auto;
+            display: inline-flex;
+            gap: 4px;
+        }
+
+        .sample-skill-action {
+            min-height: 30px;
+            width: 30px;
+            padding: 0;
+            border-radius: 7px;
+            background: #f8fafc;
+        }
+
+        .sample-skill-icon {
+            flex: 0 0 auto;
+            width: 42px;
+            height: 42px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            background: var(--brand-soft);
+            color: var(--brand);
+        }
+
+        .sample-skill-text {
+            min-width: 0;
+            display: grid;
+            gap: 4px;
+        }
+
+        .sample-skill-title {
+            color: var(--ink);
+            font-size: 15px;
+            font-weight: 900;
+        }
+
+        .sample-skill-desc {
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1.5;
+        }
+
+        .chat-message {
+            max-width: min(760px, 88%);
+            padding: 12px 14px;
+            border: 1px solid #d8e2ef;
+            border-radius: 8px;
+            background: #ffffff;
+            color: #26364d;
+            font-size: 14px;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .chat-message.user {
+            align-self: flex-end;
+            border-color: var(--brand);
+            background: var(--brand);
+            color: #ffffff;
+        }
+
+        .chat-message.assistant {
+            align-self: flex-start;
+            white-space: normal;
+        }
+
+        .chat-message.error {
+            border-color: #fecaca;
+            background: #fff7f7;
+            color: var(--danger);
+        }
+
+        .markdown-body {
+            min-width: 0;
+            max-width: 100%;
+            line-height: 1.7;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+
+        .markdown-body > *:first-child {
+            margin-top: 0;
+        }
+
+        .markdown-body > *:last-child {
+            margin-bottom: 0;
+        }
+
+        .markdown-body p,
+        .markdown-body ul,
+        .markdown-body ol,
+        .markdown-body pre,
+        .markdown-body blockquote,
+        .markdown-body table {
+            margin: 0 0 12px;
+        }
+
+        .markdown-body h1,
+        .markdown-body h2,
+        .markdown-body h3,
+        .markdown-body h4 {
+            margin: 16px 0 8px;
+            color: var(--ink);
+            line-height: 1.35;
+        }
+
+        .markdown-body h1 {
+            font-size: 22px;
+        }
+
+        .markdown-body h2 {
+            font-size: 19px;
+        }
+
+        .markdown-body h3 {
+            font-size: 17px;
+        }
+
+        .markdown-body ul,
+        .markdown-body ol {
+            padding-left: 22px;
+        }
+
+        .markdown-body code {
+            padding: 2px 5px;
+            border-radius: 5px;
+            background: #edf2f7;
+            color: #0f172a;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+            font-size: 0.92em;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+
+        .markdown-body pre {
+            max-width: 100%;
+            overflow: hidden;
+            padding: 12px;
+            border-radius: 8px;
+            background: #0f172a;
+            color: #e2e8f0;
+            white-space: pre-wrap;
+        }
+
+        .markdown-body pre code {
+            padding: 0;
+            background: transparent;
+            color: inherit;
+            white-space: pre-wrap;
+        }
+
+        .markdown-body table {
+            display: table;
+            width: 100%;
+            max-width: 100%;
+            table-layout: fixed;
+            border-collapse: collapse;
+        }
+
+        .markdown-body th,
+        .markdown-body td {
+            padding: 8px 10px;
+            border: 1px solid #dbe6f2;
+            text-align: left;
+            vertical-align: top;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+
+        .markdown-body th {
+            background: #f1f5f9;
+            font-weight: 900;
+        }
+
+        .typing {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            min-width: 58px;
+        }
+
+        .typing-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 999px;
+            background: #9aa8bb;
+            animation: typingPulse 0.9s ease-in-out infinite;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.12s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.24s;
+        }
+
+        @keyframes typingPulse {
+            0%, 80%, 100% {
+                opacity: 0.35;
+                transform: translateY(0);
+            }
+            40% {
+                opacity: 1;
+                transform: translateY(-3px);
+            }
+        }
+
+        .chat-form {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .chat-actions {
+            display: grid;
+            gap: 8px;
+            align-content: start;
+        }
+
+        .chat-actions button {
+            width: 110px;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 10px;
+            border-radius: 999px;
+            background: var(--brand-soft);
+            color: var(--brand);
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .status-pill.is-checking,
+        .status-pill.is-starting {
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+
+        .status-pill.is-ready {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status-pill.is-error {
+            background: #fee2e2;
+            color: var(--danger);
+        }
+
+        dialog {
+            width: min(560px, calc(100% - 32px));
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 0;
+            color: var(--ink);
+            background: #ffffff;
+            box-shadow: 0 24px 70px rgba(15, 23, 42, 0.22);
+        }
+
+        dialog::backdrop {
+            background: rgba(15, 23, 42, 0.42);
+        }
+
+        .dialog-head,
+        .dialog-foot {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--line);
+            font-weight: 900;
+        }
+
+        .dialog-foot {
+            justify-content: flex-end;
+            border-top: 1px solid var(--line);
+            border-bottom: 0;
+        }
+
+        .dialog-body {
+            display: grid;
+            gap: 12px;
+            padding: 18px;
+        }
+
+        @media (max-width: 860px) {
+            .layout {
+                grid-template-columns: 1fr;
+            }
+
+            .sample-chat-workspace {
+                grid-template-columns: 1fr;
+            }
+
+            .actions {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="page">
+        <div class="topbar">
+            <a class="back-link" href="/main.html" aria-label="回到主畫面"><i class="fa-solid fa-arrow-left"></i> 回到主畫面</a>
+            <div class="panel-tabs" role="tablist" aria-label="Sample Plugin 功能切換">
+                <button class="panel-tab is-active" type="button" role="tab" id="sampleTabActions" aria-selected="true" aria-controls="sampleActionsPanel" data-sample-tab="actions">
+                    <i class="fa-solid fa-screwdriver-wrench"></i> API 操作範例
+                </button>
+                <button class="panel-tab" type="button" role="tab" id="sampleTabChat" aria-selected="false" aria-controls="sampleChatPanel" data-sample-tab="chat">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> 專屬 Skill 對話
+                </button>
+            </div>
+            <span class="status-pill is-checking" id="runtimeStatus"><i class="fa-solid fa-circle-notch fa-spin"></i> 檢查中</span>
+        </div>
+
+        <div class="tab-panel" id="sampleActionsPanel" role="tabpanel" aria-labelledby="sampleTabActions" data-sample-tab-panel="actions">
+            <section class="layout">
+                <div class="panel">
+                    <div class="panel-body">
+                        <div class="actions">
+                            <button type="button" data-action="config"><i class="fa-solid fa-gear"></i> Config</button>
+                            <button type="button" data-action="items"><i class="fa-solid fa-list"></i> Items</button>
+                            <button type="button" data-action="createItem"><i class="fa-solid fa-plus"></i> Create</button>
+                            <button type="button" data-action="job"><i class="fa-solid fa-gears"></i> Job</button>
+                        </div>
+                        <div class="form">
+                            <label>
+                                Echo 訊息
+                                <input id="echoMessage" value="hello sample plugin">
+                            </label>
+                            <button class="primary" type="button" data-action="echo"><i class="fa-solid fa-reply"></i> Echo</button>
+                            <label>
+                                JSON Body
+                                <textarea id="jsonBody">{"name":"demo item","value":{"enabled":true}}</textarea>
+                            </label>
+                            <button type="button" data-action="tool"><i class="fa-solid fa-screwdriver-wrench"></i> Tool Run</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-head">
+                        <span>回應輸出</span>
+                        <button type="button" id="clearOutput"><i class="fa-solid fa-eraser"></i> 清除</button>
+                    </div>
+                    <div class="panel-body">
+                        <pre class="output" id="output">尚未呼叫 API。</pre>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <div class="tab-panel" id="sampleChatPanel" role="tabpanel" aria-labelledby="sampleTabChat" data-sample-tab-panel="chat" hidden>
+            <section class="panel chat-page">
+                <div class="panel-head">
+                    <span>專屬 Skill 對話</span>
+                    <div class="sample-head-actions">
+                        <span class="status-pill"><i class="fa-solid fa-wand-magic-sparkles"></i> guide</span>
+                        <button type="button" id="sampleSkillAdd"><i class="fa-solid fa-plus"></i> 新增</button>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div class="sample-chat-workspace">
+                        <aside class="sample-skill-pane" aria-label="Sample Plugin 預設 Skill">
+                            <div class="sample-skill-list" id="sampleSkillList">
+                                <div class="note">讀取 Skill 卡片中...</div>
+                            </div>
+                        </aside>
+                        <section class="sample-chat-pane">
+                            <div class="chat-log" id="sampleChatLog">
+                                <div class="chat-message assistant">請輸入 Sample Plugin 開發問題。送出時會先透過 Sample Plugin API 取得目前狀態、設定、資料與 MCP metadata，再導入專屬 SKILL.md 作為 SYSTEM PROMPT。</div>
+                            </div>
+                            <div class="chat-form">
+                                <textarea id="sampleChatInput" placeholder="請輸入 Sample Plugin 開發問題..."></textarea>
+                                <div class="chat-actions">
+                                    <button class="primary" type="button" id="sampleChatSend"><i class="fa-solid fa-paper-plane"></i> 送出</button>
+                                    <button type="button" id="sampleChatClear"><i class="fa-solid fa-eraser"></i> 清除</button>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <dialog id="sampleSkillCardDialog">
+        <form method="dialog" id="sampleSkillCardForm">
+            <div class="dialog-head">
+                <span id="sampleSkillCardDialogTitle">新增 Skill</span>
+                <button type="button" data-close-sample-skill-dialog aria-label="關閉"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="dialog-body">
+                <label>
+                    標題
+                    <input id="sampleSkillTitleInput" required>
+                </label>
+                <label>
+                    描述
+                    <input id="sampleSkillDescInput">
+                </label>
+                <label>
+                    Icon
+                    <input id="sampleSkillIconInput" placeholder="fa-heart-pulse">
+                </label>
+                <label>
+                    預設對話
+                    <textarea id="sampleSkillPromptInput" required></textarea>
+                </label>
+            </div>
+            <div class="dialog-foot">
+                <button type="button" data-close-sample-skill-dialog>取消</button>
+                <button class="primary" type="submit"><i class="fa-solid fa-floppy-disk"></i> 儲存</button>
+            </div>
+        </form>
+    </dialog>
+
+    <dialog id="sampleSkillDeleteDialog">
+        <form method="dialog" id="sampleSkillDeleteForm">
+            <div class="dialog-head">
+                <span>刪除 Skill</span>
+                <button type="button" data-close-sample-skill-delete aria-label="關閉"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="dialog-body">
+                <div id="sampleSkillDeleteMessage">確定要刪除此 Skill？</div>
+            </div>
+            <div class="dialog-foot">
+                <button type="button" data-close-sample-skill-delete>取消</button>
+                <button class="primary" type="submit"><i class="fa-solid fa-trash"></i> 刪除</button>
+            </div>
+        </form>
+    </dialog>
+
+    <script src="/assets/js/api.js?v=3"></script>
+    <script src="/assets/vendor/marked.min.js?v=1"></script>
+    <script src="/assets/vendor/purify.min.js?v=1"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+    <script>
+        const output = document.getElementById("output");
+        const runtimeStatus = document.getElementById("runtimeStatus");
+        const sampleChatLog = document.getElementById("sampleChatLog");
+        const sampleChatInput = document.getElementById("sampleChatInput");
+        const sampleChatSend = document.getElementById("sampleChatSend");
+        const sampleChatClear = document.getElementById("sampleChatClear");
+        const sampleSkillList = document.getElementById("sampleSkillList");
+        const sampleSkillAdd = document.getElementById("sampleSkillAdd");
+        const sampleSkillCardDialog = document.getElementById("sampleSkillCardDialog");
+        const sampleSkillCardForm = document.getElementById("sampleSkillCardForm");
+        const sampleSkillCardDialogTitle = document.getElementById("sampleSkillCardDialogTitle");
+        const sampleSkillTitleInput = document.getElementById("sampleSkillTitleInput");
+        const sampleSkillDescInput = document.getElementById("sampleSkillDescInput");
+        const sampleSkillIconInput = document.getElementById("sampleSkillIconInput");
+        const sampleSkillPromptInput = document.getElementById("sampleSkillPromptInput");
+        const sampleSkillDeleteDialog = document.getElementById("sampleSkillDeleteDialog");
+        const sampleSkillDeleteForm = document.getElementById("sampleSkillDeleteForm");
+        const sampleSkillDeleteMessage = document.getElementById("sampleSkillDeleteMessage");
+        const sampleFallbackSkillCards = [
+            {
+                id: "status",
+                title: "外掛狀態診斷",
+                description: "檢查 service、config、items 與載入狀態。",
+                icon: "fa-heart-pulse",
+                prompt: "請根據目前 Sample Plugin 的即時狀態、設定、items 與載入資訊，判斷外掛是否可正常運作，並列出需要修正或確認的項目。"
+            },
+            {
+                id: "api",
+                title: "API 串接建議",
+                description: "產生 CallPlugin / fetchPlugin 呼叫範例。",
+                icon: "fa-route",
+                prompt: "請依目前 Sample Plugin 可用 API，整理前端透過 fetchPlugin 呼叫外掛的建議寫法，包含常見 GET / POST 範例與錯誤處理方式。"
+            },
+            {
+                id: "mcp",
+                title: "MCP 能力盤點",
+                description: "整理工具、資源與 metadata 用法。",
+                icon: "fa-plug-circle-bolt",
+                prompt: "請根據目前 Sample Plugin 的 MCP metadata，說明它提供哪些工具、資源或能力，以及主服務可以如何透過 MCP 操作它。"
+            },
+            {
+                id: "developer",
+                title: "開發移植檢查",
+                description: "檢查自定義 plugin 要替換的檔案與設定。",
+                icon: "fa-code",
+                prompt: "請把 Sample Plugin 當成開發模板，列出開發自定義 plugin 時需要調整的檔案、plugin.json 設定、API endpoint、MCP metadata 與部署注意事項。"
+            }
+        ];
+        let sampleSkillCards = [];
+        let editingSampleSkillCardId = "";
+        let deletingSampleSkillCardId = "";
+        let sampleChatHistory = [];
+        let sampleChatSessionId = `sample_plugin_${Date.now()}`;
+        let sampleChatStreaming = false;
+
+        function sampleAuthHeadersFromCookie() {
+            const names = ["agentic_auth_token", "auth_token", "authToken", "token", "Authentication", "Authorization"];
+            const cookies = String(document.cookie || "").split(";").map((part) => part.trim()).filter(Boolean);
+            for (const name of names) {
+                const encodedPrefix = `${encodeURIComponent(name)}=`;
+                const plainPrefix = `${name}=`;
+                const found = cookies.find((cookie) => cookie.startsWith(encodedPrefix) || cookie.startsWith(plainPrefix));
+                if (!found) continue;
+                const raw = found.slice(found.indexOf("=") + 1);
+                let token = "";
+                try {
+                    token = decodeURIComponent(raw).trim();
+                } catch {
+                    token = raw.trim();
+                }
+                if (!token) continue;
+                const value = token.toLowerCase().startsWith("bearer ") ? token : `Bearer ${token}`;
+                return { Authentication: value, Authorization: value };
+            }
+            return {};
+        }
+
+        function withSampleAuthHeaders(options = {}) {
+            return {
+                ...options,
+                credentials: options.credentials || "same-origin",
+                headers: {
+                    ...sampleAuthHeadersFromCookie(),
+                    ...(options.headers || {})
+                }
+            };
+        }
+
+        async function rawFetchJSON(url, options = {}) {
+            const headers = { ...sampleAuthHeadersFromCookie(), ...(options.headers || {}) };
+            if (!(options.body instanceof FormData)) headers["Content-Type"] = "application/json";
+            const response = await fetch(url, { credentials: "same-origin", ...options, headers });
+            const text = await response.text();
+            let data = {};
+            try {
+                data = text ? JSON.parse(text) : {};
+            } catch (error) {
+                data = { success: false, error: text || error.message };
+            }
+            if (!response.ok && !data.error) data.error = `HTTP ${response.status}`;
+            return data;
+        }
+
+        async function appFetchJSON(url, options = {}) {
+            if (typeof window.AgenticTalkAPI?.apiFetch === "function") {
+                return window.AgenticTalkAPI.apiFetch(url, withSampleAuthHeaders(options));
+            }
+            return rawFetchJSON(url, options);
+        }
+
+        async function sampleApi(path, options = {}) {
+            const normalized = String(path || "").startsWith("/") ? String(path || "") : `/${path || ""}`;
+            if (typeof window.AgenticTalkAPI?.fetchPlugin === "function") {
+                return window.AgenticTalkAPI.fetchPlugin("sample", normalized, withSampleAuthHeaders(options));
+            }
+            return appFetchJSON(normalized, options);
+        }
+
+        async function samplePluginControl(path, options = {}) {
+            const normalized = String(path || "").startsWith("/") ? String(path || "") : `/${path || ""}`;
+            if (typeof window.AgenticTalkAPI?.fetchPluginControl === "function") {
+                return window.AgenticTalkAPI.fetchPluginControl("sample", normalized, withSampleAuthHeaders(options));
+            }
+            const gateway = await appFetchJSON(`/api/plugin/sample/_plugin${normalized}`, options);
+            if (gateway.success || !String(gateway.error || "").includes("HTTP 404")) {
+                return gateway;
+            }
+            const command = normalized.replace(/^\/+/, "") || "status";
+            if (command === "mcp") return appFetchJSON("/mcp", options);
+            return appFetchJSON(`/api/sample/plugin/${command}`, options);
+        }
+
+        function samplePluginCommandFromPath(path) {
+            const match = String(path || "").match(/^\/api\/sample\/plugin\/([^/?#]+)/);
+            return match ? `/${match[1]}` : "";
+        }
+
+        function printResult(title, data) {
+            output.textContent = `${title}\n\n${JSON.stringify(data, null, 2)}`;
+        }
+
+        function setBusy(isBusy) {
+            document.querySelectorAll("button").forEach((button) => {
+                if (button.id !== "clearOutput" && !button.dataset.sampleTab) button.disabled = isBusy;
+            });
+        }
+
+        function activateSampleTab(tabName) {
+            const name = tabName === "chat" ? "chat" : "actions";
+            document.querySelectorAll("[data-sample-tab]").forEach((button) => {
+                const active = button.dataset.sampleTab === name;
+                button.classList.toggle("is-active", active);
+                button.setAttribute("aria-selected", active ? "true" : "false");
+                button.tabIndex = active ? 0 : -1;
+            });
+            document.querySelectorAll("[data-sample-tab-panel]").forEach((panel) => {
+                panel.hidden = panel.dataset.sampleTabPanel !== name;
+            });
+        }
+
+        function normalizeIconClass(icon) {
+            const raw = String(icon || "").trim();
+            if (!raw) return "fa-solid fa-wand-magic-sparkles";
+            if (raw.includes("fa-solid") || raw.includes("fa-regular") || raw.includes("fa-brands")) return raw;
+            return `fa-solid ${raw}`;
+        }
+
+        function normalizeSampleSkillCard(card) {
+            return {
+                id: String(card?.id || "").trim(),
+                title: String(card?.title || "").trim(),
+                description: String(card?.description || "").trim(),
+                icon: String(card?.icon || "fa-wand-magic-sparkles").trim(),
+                prompt: String(card?.prompt || "").trim()
+            };
+        }
+
+        function renderSampleSkillCards() {
+            if (!sampleSkillList) return;
+            const cards = sampleSkillCards.map(normalizeSampleSkillCard).filter((card) => card.id && card.title && card.prompt);
+            if (!cards.length) {
+                sampleSkillList.innerHTML = `<div class="note">尚未建立 Skill 卡片。</div>`;
+                return;
+            }
+            sampleSkillList.innerHTML = cards.map((card) => `
+                <div class="sample-skill-card" role="button" tabindex="0" data-sample-chat-skill="${escapeHtml(card.id)}" title="${escapeHtml(card.title)}">
+                    <span class="sample-skill-card-main">
+                        <span class="sample-skill-icon"><i class="${escapeHtml(normalizeIconClass(card.icon))}"></i></span>
+                        <span class="sample-skill-text">
+                            <span class="sample-skill-title">${escapeHtml(card.title)}</span>
+                            <span class="sample-skill-desc">${escapeHtml(card.description)}</span>
+                        </span>
+                    </span>
+                    <span class="sample-skill-actions" aria-label="Skill 操作">
+                        <button class="sample-skill-action" type="button" title="編輯" aria-label="編輯" data-sample-skill-action="edit" data-sample-skill-id="${escapeHtml(card.id)}">
+                            <i class="fa-solid fa-pen"></i>
+                        </button>
+                        <button class="sample-skill-action" type="button" title="刪除" aria-label="刪除" data-sample-skill-action="delete" data-sample-skill-id="${escapeHtml(card.id)}">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </span>
+                </div>
+            `).join("");
+        }
+
+        async function loadSampleSkillCards() {
+            try {
+                const data = await sampleApi("/api/sample/skills/cards", { method: "GET", cache: "no-store" });
+                sampleSkillCards = Array.isArray(data?.cards) && data.cards.length ? data.cards : sampleFallbackSkillCards;
+            } catch (error) {
+                sampleSkillCards = sampleFallbackSkillCards;
+            }
+            renderSampleSkillCards();
+        }
+
+        function openSampleSkillCardDialog(card = null) {
+            editingSampleSkillCardId = String(card?.id || "").trim();
+            if (sampleSkillCardDialogTitle) sampleSkillCardDialogTitle.textContent = editingSampleSkillCardId ? "編輯 Skill" : "新增 Skill";
+            if (sampleSkillTitleInput) sampleSkillTitleInput.value = card?.title || "";
+            if (sampleSkillDescInput) sampleSkillDescInput.value = card?.description || "";
+            if (sampleSkillIconInput) sampleSkillIconInput.value = card?.icon || "fa-wand-magic-sparkles";
+            if (sampleSkillPromptInput) sampleSkillPromptInput.value = card?.prompt || "";
+            sampleSkillCardDialog?.showModal();
+            sampleSkillTitleInput?.focus();
+        }
+
+        async function saveSampleSkillCard() {
+            const card = normalizeSampleSkillCard({
+                title: sampleSkillTitleInput?.value,
+                description: sampleSkillDescInput?.value,
+                icon: sampleSkillIconInput?.value,
+                prompt: sampleSkillPromptInput?.value
+            });
+            if (!card.title || !card.prompt) return;
+            const path = editingSampleSkillCardId
+                ? `/api/sample/skills/cards/${encodeURIComponent(editingSampleSkillCardId)}`
+                : "/api/sample/skills/cards";
+            const method = editingSampleSkillCardId ? "PUT" : "POST";
+            try {
+                const data = await sampleApi(path, {
+                    method,
+                    body: JSON.stringify(card)
+                });
+                if (!data?.success) throw new Error(data?.error || "Skill 儲存失敗。");
+                sampleSkillCards = Array.isArray(data.cards) ? data.cards : sampleSkillCards;
+                sampleSkillCardDialog?.close();
+                renderSampleSkillCards();
+                await loadSampleSkillCards();
+            } catch (error) {
+                window.alert(error?.message || "Skill 儲存失敗。");
+            }
+        }
+
+        function openSampleSkillDeleteDialog(card) {
+            deletingSampleSkillCardId = String(card?.id || "").trim();
+            if (!deletingSampleSkillCardId) return;
+            if (sampleSkillDeleteMessage) {
+                sampleSkillDeleteMessage.textContent = `確定要刪除「${card.title || deletingSampleSkillCardId}」？`;
+            }
+            sampleSkillDeleteDialog?.showModal();
+        }
+
+        async function deleteSampleSkillCard() {
+            if (!deletingSampleSkillCardId) return;
+            try {
+                const data = await sampleApi(`/api/sample/skills/cards/${encodeURIComponent(deletingSampleSkillCardId)}`, {
+                    method: "DELETE"
+                });
+                if (!data?.success) throw new Error(data?.error || "Skill 刪除失敗。");
+                sampleSkillCards = Array.isArray(data.cards) ? data.cards : sampleSkillCards.filter((card) => card.id !== deletingSampleSkillCardId);
+                deletingSampleSkillCardId = "";
+                sampleSkillDeleteDialog?.close();
+                renderSampleSkillCards();
+            } catch (error) {
+                window.alert(error?.message || "Skill 刪除失敗。");
+            }
+        }
+
+        function applySampleSkillPrompt(id) {
+            const card = sampleSkillCards.find((item) => String(item.id || "") === String(id || ""));
+            if (!card?.prompt || !sampleChatInput) return;
+            sampleChatInput.value = card.prompt;
+            sampleChatInput.focus();
+            sampleChatInput.setSelectionRange?.(sampleChatInput.value.length, sampleChatInput.value.length);
+        }
+
+        function readJSONBody() {
+            const text = document.getElementById("jsonBody").value.trim();
+            if (!text) return {};
+            return JSON.parse(text);
+        }
+
+        async function callPlugin(title, path, options = {}) {
+            setBusy(true);
+            output.textContent = `${title}\n\n呼叫中...`;
+            try {
+                const command = samplePluginCommandFromPath(path);
+                const data = command
+                    ? await samplePluginControl(command, options)
+                    : await sampleApi(path, options);
+                updateRuntimeStatus(data);
+                printResult(title, data);
+                return data;
+            } catch (error) {
+                runtimeStatus.classList.add("is-error");
+                runtimeStatus.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> ${error?.message || "呼叫失敗"}`;
+                output.textContent = `${title}\n\n${error?.message || error}`;
+                return null;
+            } finally {
+                setBusy(false);
+            }
+        }
+
+        function compactJSON(value, maxLength = 12000) {
+            const text = JSON.stringify(value, null, 2);
+            if (text.length <= maxLength) return text;
+            return `${text.slice(0, maxLength)}\n...已截斷 ${text.length - maxLength} 字元`;
+        }
+
+        function compactText(value, maxLength = 12000) {
+            const text = String(value || "");
+            if (text.length <= maxLength) return text;
+            return `${text.slice(0, maxLength)}\n...已截斷 ${text.length - maxLength} 字元`;
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? "")
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+        }
+
+        function renderMarkdown(value) {
+            const raw = String(value || "");
+            if (!raw.trim()) return "";
+            try {
+                if (window.marked) {
+                    window.marked.setOptions({
+                        gfm: true,
+                        breaks: true,
+                        headerIds: false,
+                        mangle: false
+                    });
+                    const html = window.marked.parse(raw);
+                    return window.DOMPurify ? window.DOMPurify.sanitize(html) : html;
+                }
+            } catch (error) {
+                // Markdown renderer 發生例外時退回純文字，避免阻斷串流回應。
+            }
+            return escapeHtml(raw).replaceAll("\n", "<br>");
+        }
+
+        function renderMathIn(container) {
+            if (!container || typeof window.renderMathInElement !== "function") return;
+            try {
+                window.renderMathInElement(container, {
+                    delimiters: [
+                        { left: "$$", right: "$$", display: true },
+                        { left: "\\[", right: "\\]", display: true },
+                        { left: "$", right: "$", display: false },
+                        { left: "\\(", right: "\\)", display: false }
+                    ],
+                    throwOnError: false
+                });
+            } catch (error) {
+                // KaTeX render 失敗時保留原始 Markdown 內容。
+            }
+        }
+
+        function setAssistantMarkdown(element, content) {
+            if (!element) return;
+            element.innerHTML = `<div class="markdown-body">${renderMarkdown(content)}</div>`;
+            renderMathIn(element);
+        }
+
+        function appendChatMessage(role, content = "") {
+            if (!sampleChatLog) return null;
+            const message = document.createElement("div");
+            message.className = `chat-message ${role}`;
+            if (role === "assistant") {
+                setAssistantMarkdown(message, content);
+            } else {
+                message.textContent = content;
+            }
+            sampleChatLog.appendChild(message);
+            sampleChatLog.scrollTop = sampleChatLog.scrollHeight;
+            return message;
+        }
+
+        function resetSampleChat() {
+            if (sampleChatLog) {
+                sampleChatLog.innerHTML = "";
+                appendChatMessage("assistant", "請輸入 Sample Plugin 開發問題。送出時會先透過 Sample Plugin API 取得目前狀態、設定、資料與 MCP metadata，再導入專屬 SKILL.md 作為 SYSTEM PROMPT。");
+            }
+            if (sampleChatInput) sampleChatInput.value = "";
+            sampleChatHistory = [];
+            sampleChatSessionId = `sample_plugin_${Date.now()}`;
+        }
+
+        function parseSSEChunk(chunk) {
+            const lines = chunk.split("\n");
+            let eventName = "message";
+            const dataLines = [];
+            lines.forEach((line) => {
+                if (line.startsWith("event:")) eventName = line.slice(6).trim();
+                if (line.startsWith("data:")) dataLines.push(line.slice(5).trimStart());
+            });
+            const rawData = dataLines.join("\n");
+            let payload = {};
+            if (rawData) {
+                try {
+                    payload = JSON.parse(rawData);
+                } catch (error) {
+                    payload = { text: rawData };
+                }
+            }
+            return { eventName, payload };
+        }
+
+        function buildConversationContext(history) {
+            const items = Array.isArray(history) ? history.filter((item) => item?.role && String(item?.content || "").trim()).slice(-12) : [];
+            if (!items.length) return "尚無先前問答。";
+            return compactText(items.map((item, index) => {
+                const role = item.role === "assistant" ? "Assistant" : "User";
+                return `[${index + 1}] ${role}:\n${String(item.content || "").trim()}`;
+            }).join("\n\n"), 16000);
+        }
+
+        async function fetchSampleSkillGuide() {
+            const data = await sampleApi("/api/sample/skills/guide/content", { method: "GET", cache: "no-store" });
+            if (!data?.success || !data?.content) {
+                throw new Error(data?.error || "無法讀取 Sample Plugin CHAT Guide。");
+            }
+            return data.content;
+        }
+
+        async function fetchSampleLiveContext() {
+            const calls = [
+                ["pluginStatus", "/api/sample/plugin/status", { method: "GET", cache: "no-store" }],
+                ["registration", "/api/sample/plugin/registration", { method: "GET", cache: "no-store" }],
+                ["config", "/api/sample/config", { method: "GET", cache: "no-store" }],
+                ["items", "/api/sample/items", { method: "GET", cache: "no-store" }],
+                ["mcp", "/mcp", { method: "GET", cache: "no-store" }],
+                ["skills", "/api/sample/skills", { method: "GET", cache: "no-store" }]
+            ];
+            const context = {};
+            for (const [key, path, options] of calls) {
+                try {
+                    const command = samplePluginCommandFromPath(path);
+                    context[key] = command
+                        ? await samplePluginControl(command, options)
+                        : await sampleApi(path, options);
+                } catch (error) {
+                    context[key] = { success: false, error: error?.message || String(error) };
+                }
+            }
+            return [
+                "Sample Plugin API 即時上下文：",
+                compactJSON(context, 22000),
+                "",
+                "可呼叫方式提醒：",
+                `fetchPlugin("sample", "/api/sample/...")`,
+                `fetchPluginControl("sample", "/load|/status|/unload|/reload")`
+            ].join("\n");
+        }
+
+        async function buildSampleChatMessage(userMessage, priorHistory) {
+            const liveContext = await fetchSampleLiveContext();
+            return [
+                "未清除前的先前問答上下文：",
+                buildConversationContext(priorHistory),
+                "",
+                liveContext,
+                "",
+                "目前使用者問題：",
+                userMessage
+            ].join("\n");
+        }
+
+        async function sendSampleChatMessage() {
+            const content = String(sampleChatInput?.value || "").trim();
+            if (!content || sampleChatStreaming) return;
+            sampleChatStreaming = true;
+            if (sampleChatSend) sampleChatSend.disabled = true;
+            if (sampleChatInput) sampleChatInput.value = "";
+            const priorHistory = [...sampleChatHistory];
+            sampleChatHistory.push({ role: "user", content });
+            appendChatMessage("user", content);
+            const assistantMessage = appendChatMessage("assistant", "");
+            if (assistantMessage) {
+                assistantMessage.classList.add("typing");
+                assistantMessage.innerHTML = `<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>`;
+            }
+            try {
+                const systemPrompt = await fetchSampleSkillGuide();
+                const promptMessage = await buildSampleChatMessage(content, priorHistory);
+                const response = await fetch("/talk/ask/direct_stream", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        ...(window.AgenticTalkAPI?.authHeaders?.() || {})
+                    },
+                    body: JSON.stringify({
+                        session_id: sampleChatSessionId,
+                        provider_id: "chat",
+                        system: systemPrompt,
+                        message: promptMessage,
+                        thinking_mode: "light",
+                        permission_profile: "default",
+                        locale_mode: "fixed",
+                        locale: "zh-TW",
+                        lang: "zh-TW",
+                        language: "zh-TW",
+                        allow_shell: false,
+                        plan_execute: false,
+                        use_memory: false,
+                        debug: false,
+                        step_reasoning_stream: false
+                    })
+                });
+                if (!response.ok || !response.body) throw new Error("CHAT 串流呼叫失敗。");
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder("utf-8");
+                let buffer = "";
+                let contentBuffer = "";
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, { stream: true }).replaceAll("\r\n", "\n");
+                    while (buffer.includes("\n\n")) {
+                        const splitIndex = buffer.indexOf("\n\n");
+                        const chunk = buffer.slice(0, splitIndex);
+                        buffer = buffer.slice(splitIndex + 2);
+                        const { eventName, payload } = parseSSEChunk(chunk);
+                        if (eventName === "delta") {
+                            contentBuffer += payload.delta || "";
+                            if (assistantMessage) {
+                                assistantMessage.classList.remove("typing");
+                                setAssistantMarkdown(assistantMessage, contentBuffer);
+                                sampleChatLog.scrollTop = sampleChatLog.scrollHeight;
+                            }
+                        } else if (eventName === "done") {
+                            contentBuffer = payload.assistant_message?.content || contentBuffer;
+                            if (assistantMessage) {
+                                assistantMessage.classList.remove("typing");
+                                setAssistantMarkdown(assistantMessage, contentBuffer || "已完成。");
+                            }
+                        } else if (eventName === "error") {
+                            throw new Error(payload.error || "CHAT 回應失敗。");
+                        }
+                    }
+                }
+                if (assistantMessage && !assistantMessage.textContent.trim()) {
+                    assistantMessage.classList.remove("typing");
+                    setAssistantMarkdown(assistantMessage, contentBuffer || "已完成。");
+                }
+                if (contentBuffer.trim()) {
+                    sampleChatHistory.push({ role: "assistant", content: contentBuffer.trim() });
+                }
+            } catch (error) {
+                if (assistantMessage) {
+                    assistantMessage.classList.remove("typing");
+                    assistantMessage.classList.add("error");
+                    assistantMessage.textContent = error?.message || "CHAT 回應失敗。";
+                }
+            } finally {
+                sampleChatStreaming = false;
+                if (sampleChatSend) sampleChatSend.disabled = false;
+            }
+        }
+
+        function updateRuntimeStatus(data) {
+            const plugin = data?.plugin || data?.service?.plugin || data?.sample?.plugin;
+            const loaded = Boolean(plugin?.loaded);
+            runtimeStatus.className = `status-pill ${loaded ? "is-ready" : "is-checking"}`;
+            runtimeStatus.innerHTML = loaded
+                ? `<i class="fa-solid fa-circle-check"></i> 已載入`
+                : `<i class="fa-solid fa-circle-info"></i> 未載入`;
+        }
+
+        function setRuntimeStatus(type, text, icon = "") {
+            const iconClass = icon || (type === "is-error" ? "fa-triangle-exclamation" : "fa-circle-info");
+            runtimeStatus.className = `status-pill ${type}`;
+            runtimeStatus.innerHTML = `<i class="fa-solid ${iconClass}"></i> ${escapeHtml(text)}`;
+        }
+
+        const handlers = {
+            config: () => callPlugin("Config", "/api/sample/config"),
+            items: () => callPlugin("Items", "/api/sample/items"),
+            createItem: () => callPlugin("Create Item", "/api/sample/items", {
+                method: "POST",
+                body: JSON.stringify(readJSONBody()),
+            }),
+            job: () => callPlugin("Start Job", "/api/sample/jobs", {
+                method: "POST",
+                body: JSON.stringify({ message: "sample background job" }),
+            }),
+            echo: () => callPlugin("Echo", "/api/sample/echo", {
+                method: "POST",
+                body: JSON.stringify({ message: document.getElementById("echoMessage").value }),
+            }),
+            tool: () => callPlugin("Tool Run", "/api/sample/tools/run", {
+                method: "POST",
+                body: JSON.stringify({ tool: "sample.tool", input: readJSONBody() }),
+            }),
+        };
+
+        async function initializeSamplePlugin() {
+            if (typeof window.AgenticTalkAPI?.ensureAuthOrRedirect === "function") {
+                const allowed = window.AgenticTalkAPI.ensureAuthOrRedirect();
+                if (!allowed) {
+                    setRuntimeStatus("is-error", "unauthorized", "fa-triangle-exclamation");
+                    return;
+                }
+            }
+            try {
+                setRuntimeStatus("is-checking", "檢查中", "fa-circle-notch fa-spin");
+                const status = await samplePluginControl("/status", { method: "GET", cache: "no-store" });
+                if (status?.success && status?.plugin?.loaded) {
+                    updateRuntimeStatus(status);
+                } else {
+                    setRuntimeStatus("is-starting", "啟動中", "fa-circle-notch fa-spin");
+                    const loaded = await samplePluginControl("/load", { method: "POST", body: "{}" });
+                    if (!loaded?.success) {
+                        throw new Error(loaded?.error || "載入失敗");
+                    }
+                    updateRuntimeStatus(loaded);
+                }
+            } catch (error) {
+                setRuntimeStatus("is-error", error?.message || "服務錯誤", "fa-triangle-exclamation");
+            }
+            await loadSampleSkillCards();
+            await callPlugin("Plugin Status", "/api/sample/plugin/status", { method: "GET", cache: "no-store" });
+        }
+
+        document.querySelectorAll("[data-action]").forEach((button) => {
+            button.addEventListener("click", () => handlers[button.dataset.action]?.());
+        });
+        document.getElementById("clearOutput")?.addEventListener("click", () => {
+            output.textContent = "尚未呼叫 API。";
+        });
+        document.querySelectorAll("[data-sample-tab]").forEach((button) => {
+            button.addEventListener("click", () => activateSampleTab(button.dataset.sampleTab));
+        });
+        sampleSkillList?.addEventListener("click", (event) => {
+            const actionButton = event.target.closest("[data-sample-skill-action]");
+            if (actionButton) {
+                event.stopPropagation();
+                const id = actionButton.dataset.sampleSkillId || "";
+                const card = sampleSkillCards.find((item) => String(item.id || "") === id);
+                if (!card) return;
+                if (actionButton.dataset.sampleSkillAction === "edit") openSampleSkillCardDialog(card);
+                if (actionButton.dataset.sampleSkillAction === "delete") openSampleSkillDeleteDialog(card);
+                return;
+            }
+            const cardNode = event.target.closest("[data-sample-chat-skill]");
+            if (cardNode) applySampleSkillPrompt(cardNode.dataset.sampleChatSkill || "");
+        });
+        sampleSkillList?.addEventListener("keydown", (event) => {
+            if (event.key !== "Enter" && event.key !== " ") return;
+            const cardNode = event.target.closest("[data-sample-chat-skill]");
+            if (!cardNode) return;
+            event.preventDefault();
+            applySampleSkillPrompt(cardNode.dataset.sampleChatSkill || "");
+        });
+        sampleSkillAdd?.addEventListener("click", () => openSampleSkillCardDialog());
+        sampleSkillCardForm?.addEventListener("submit", (event) => {
+            event.preventDefault();
+            saveSampleSkillCard();
+        });
+        sampleSkillDeleteForm?.addEventListener("submit", (event) => {
+            event.preventDefault();
+            deleteSampleSkillCard();
+        });
+        document.querySelectorAll("[data-close-sample-skill-dialog]").forEach((button) => {
+            button.addEventListener("click", () => sampleSkillCardDialog?.close());
+        });
+        document.querySelectorAll("[data-close-sample-skill-delete]").forEach((button) => {
+            button.addEventListener("click", () => sampleSkillDeleteDialog?.close());
+        });
+        sampleChatSend?.addEventListener("click", sendSampleChatMessage);
+        sampleChatInput?.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                event.preventDefault();
+                sendSampleChatMessage();
+            }
+        });
+        sampleChatClear?.addEventListener("click", resetSampleChat);
+
+        if (typeof window.AgenticTalkAPI?.startAuthMonitor === "function") {
+            window.AgenticTalkAPI.startAuthMonitor();
+        }
+        initializeSamplePlugin();
+    </script>
+</body>
+</html>

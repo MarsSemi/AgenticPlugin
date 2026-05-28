@@ -1,0 +1,19 @@
+{
+  "version": "0.1.0",
+  "message": "Hello from Sample Plugin",
+  "features": {
+    "echo": true,
+    "items": true,
+    "stream": true,
+    "jobs": true,
+    "files": true,
+    "tools": true
+  },
+  "items": [
+    {
+      "id": "demo-1",
+      "name": "Demo Item",
+      "value": "This record is loaded from config.default.json"
+    }
+  ]
+}

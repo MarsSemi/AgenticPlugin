@@ -1,0 +1,67 @@
+{
+  "id": "sample",
+  "name": "Sample Plugin",
+  "version": "0.1.0",
+  "type": "service",
+  "auto_start": true,
+  "website_path": "./website/sample/index.html",
+  "ui": {
+    "enabled": true,
+    "order": 90,
+    "website_path": "./website/sample/index.html",
+    "href": "/sample/index.html",
+    "code": "SAMPLE",
+    "class": "sample",
+    "title": "Sample Plugin",
+    "description": "外掛開發參考頁，示範生命週期、設定、CRUD、串流與背景工作呼叫。",
+    "action": "進入 Sample Plugin",
+    "icon": "fa-solid fa-puzzle-piece",
+    "color": "blue"
+  },
+  "entry": "./plugins/sample/bin/sample-service",
+  "platform_entries": {
+    "darwin/arm64": "./plugins/sample/bin/sample-service_darwin_arm64",
+    "darwin/amd64": "./plugins/sample/bin/sample-service_darwin_amd64",
+    "linux/amd64": "./plugins/sample/bin/sample-service_linux_amd64",
+    "linux/arm64": "./plugins/sample/bin/sample-service_linux_arm64",
+    "windows/amd64": "./plugins/sample/bin/sample-service_windows_amd64.exe",
+    "windows/arm64": "./plugins/sample/bin/sample-service_windows_arm64.exe"
+  },
+  "source_entry": "./src/sampleplugin/service",
+  "service_url": "http://127.0.0.1:18182",
+  "api_base": "/api/plugin/sample",
+  "plugin_api_base": "/api/sample",
+  "mcp_url": "http://127.0.0.1:18182/mcp",
+  "routes": ["/api/sample"],
+  "runtime": {
+    "service": "sample-service",
+    "addr": "127.0.0.1:18182",
+    "listen_addr": "127.0.0.1:18182",
+    "health": "/api/sample/plugin/status",
+    "auth": "/api/sample/plugin/auth",
+    "load": "/api/sample/plugin/load",
+    "unload": "/api/sample/plugin/unload",
+    "registration": "/api/sample/plugin/registration",
+    "start_args": ["-config", "plugins/sample/config.json"]
+  },
+  "invoke": {
+    "type": "CallPlugin",
+    "api_base": "/api/plugin/sample",
+    "plugin_api_base": "/api/sample"
+  },
+  "enabled": true,
+  "capabilities": [
+    "lifecycle",
+    "registration",
+    "host-auth",
+    "mcp",
+    "config",
+    "crud",
+    "skill-guide",
+    "chat-guide",
+    "stream",
+    "background-job",
+    "file-payload",
+    "tool-call"
+  ]
+}
