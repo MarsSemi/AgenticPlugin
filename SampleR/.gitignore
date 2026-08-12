@@ -1,0 +1,12 @@
+/target/
+/build/
+/dist/
+
+.DS_Store
+*.bak
+*.zip
+
+/plugins/sample-r/bin/
+/plugins/sample-r/runtime/
+/plugins/sample-r/config.json
+/plugins/sample-r/skill/skill-cards.json

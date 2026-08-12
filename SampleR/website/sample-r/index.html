@@ -1,0 +1,2664 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SampleR Plugin · AgenticService</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+    <style>
+        :root {
+            --bg: #f5f7fb;
+            --panel: #ffffff;
+            --ink: #172033;
+            --muted: #64748b;
+            --line: #d9e2ef;
+            --brand: #1769aa;
+            --brand-soft: #e7f1fb;
+            --danger: #b91c1c;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--ink);
+            background: var(--bg);
+            font-family: "Noto Sans TC", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            letter-spacing: 0;
+        }
+
+        .page {
+            width: min(1180px, calc(100% - 36px));
+            margin: 0 auto;
+            padding: 24px 0 36px;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 16px;
+            margin-bottom: 18px;
+        }
+
+        .topbar .panel-tabs {
+            margin-left: 16px;
+        }
+
+        .topbar #runtimeStatus {
+            margin-left: auto;
+        }
+
+        .back-link,
+        button {
+            min-height: 38px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 0 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            background: #ffffff;
+            color: #334155;
+            cursor: pointer;
+            font: inherit;
+            font-size: 14px;
+            font-weight: 800;
+            text-decoration: none;
+        }
+
+        button.primary {
+            border-color: var(--brand);
+            background: var(--brand);
+            color: #ffffff;
+        }
+
+        button:disabled {
+            cursor: not-allowed;
+            opacity: 0.58;
+        }
+
+        .panel {
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: var(--panel);
+        }
+
+        h1 {
+            margin: 8px 0 8px;
+            font-size: 32px;
+            line-height: 1.2;
+            font-weight: 900;
+        }
+
+        .note {
+            color: var(--muted);
+            line-height: 1.7;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 360px minmax(0, 1fr);
+            gap: 18px;
+        }
+
+        .panel-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 16px 18px;
+            border-bottom: 1px solid var(--line);
+            font-weight: 900;
+        }
+
+        .panel-tabs {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px;
+            border: 1px solid #d7e1ee;
+            border-radius: 10px;
+            background: #f8fafc;
+        }
+
+        .panel-tab {
+            min-height: 32px;
+            padding: 0 12px;
+            border-color: transparent;
+            background: transparent;
+            color: #526178;
+            font-size: 13px;
+        }
+
+        .panel-tab.is-active {
+            border-color: #b8cce3;
+            background: #e7f1fb;
+            color: var(--brand);
+        }
+
+        .tab-panel[hidden] {
+            display: none;
+        }
+
+        .panel-body {
+            padding: 18px;
+        }
+
+        .actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .form {
+            display: grid;
+            gap: 10px;
+            margin-top: 16px;
+        }
+
+        label {
+            display: grid;
+            gap: 6px;
+            color: #334155;
+            font-size: 13px;
+            font-weight: 900;
+        }
+
+        input,
+        textarea,
+        select {
+            width: 100%;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 10px 12px;
+            color: var(--ink);
+            font: inherit;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        textarea {
+            min-height: 88px;
+            resize: vertical;
+        }
+
+        .field-inline {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #334155;
+            font-size: 13px;
+            font-weight: 900;
+        }
+
+        .field-inline input[type="checkbox"] {
+            width: auto;
+        }
+
+        .output {
+            min-height: 460px;
+            max-height: 640px;
+            overflow: auto;
+            margin: 0;
+            padding: 18px;
+            border-radius: 8px;
+            background: #f8fafc;
+            color: #26364d;
+            font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .chat-log {
+            min-height: 320px;
+            max-height: 460px;
+            overflow: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 14px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #f8fafc;
+        }
+
+        .chat-page .chat-log {
+            min-height: 500px;
+            max-height: none;
+        }
+
+        .sample-chat-workspace {
+            display: grid;
+            grid-template-columns: 330px minmax(0, 1fr);
+            gap: 16px;
+            align-items: stretch;
+        }
+
+        .sample-skill-pane,
+        .sample-chat-pane {
+            min-width: 0;
+        }
+
+        .sample-skill-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .sample-head-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .sample-task-workspace {
+            display: grid;
+            grid-template-columns: 360px minmax(0, 1fr);
+            gap: 16px;
+            align-items: stretch;
+        }
+
+        .sample-msg-workspace {
+            display: grid;
+            grid-template-columns: 360px minmax(0, 1fr);
+            gap: 16px;
+            align-items: start;
+        }
+
+        .sample-task-pane,
+        .sample-task-log-pane,
+        .sample-msg-pane,
+        .sample-msg-log-pane {
+            min-width: 0;
+            border: 1px solid var(--line);
+            background: #ffffff;
+        }
+
+        .sample-task-section-head {
+            min-height: 46px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--line);
+            font-weight: 900;
+        }
+
+        .sample-task-log-tools {
+            display: inline-flex;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .sample-task-log-date {
+            width: 150px;
+            min-height: 36px;
+            padding: 7px 10px;
+            font-weight: 800;
+        }
+
+        .sample-task-log-pager {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px;
+            border: 1px solid #d7e1ee;
+            border-radius: 8px;
+            background: #f8fafc;
+        }
+
+        .sample-task-log-pager button {
+            min-height: 28px;
+            width: 30px;
+            padding: 0;
+        }
+
+        .sample-task-log-position {
+            min-width: 56px;
+            text-align: center;
+            color: #334155;
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .sample-task-list {
+            display: grid;
+            max-height: 560px;
+            overflow: auto;
+            gap: 10px;
+            padding: 12px;
+        }
+
+        .sample-task-card {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 12px;
+            align-items: start;
+            padding: 14px;
+            border: 1px solid #cbd5e1;
+            background: #ffffff;
+            cursor: pointer;
+        }
+
+        .sample-task-card.is-selected {
+            border-color: var(--brand);
+            background: #f4f9ff;
+        }
+
+        .sample-task-main {
+            min-width: 0;
+            display: grid;
+            gap: 6px;
+        }
+
+        .sample-task-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 15px;
+            font-weight: 900;
+        }
+
+        .sample-task-meta,
+        .sample-task-result {
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1.5;
+            overflow-wrap: anywhere;
+        }
+
+        .sample-task-actions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-start;
+            gap: 6px;
+        }
+
+        .sample-task-actions button {
+            min-height: 32px;
+            padding: 0 10px;
+        }
+
+        .sample-task-log-output {
+            min-height: 560px;
+            max-height: 560px;
+            overflow: auto;
+            margin: 0;
+            padding: 14px;
+            background: #f8fafc;
+            color: #26364d;
+            font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .sample-msg-log-output {
+            min-height: 520px;
+            max-height: 520px;
+            overflow: auto;
+            margin: 0;
+            padding: 14px;
+            background: #f8fafc;
+            color: #26364d;
+            font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .sample-msg-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .sample-skill-card {
+            min-height: 76px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 12px;
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #cbd5e1;
+            text-align: left;
+            background: #ffffff;
+            cursor: pointer;
+        }
+
+        .sample-skill-card:hover,
+        .sample-skill-card:focus-visible {
+            border-color: #9fc3e7;
+            background: #f4f9ff;
+        }
+
+        .sample-skill-card-main {
+            flex: 1;
+            min-width: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .sample-skill-actions {
+            flex: 0 0 auto;
+            display: inline-flex;
+            gap: 4px;
+        }
+
+        .sample-skill-action {
+            min-height: 30px;
+            width: 30px;
+            padding: 0;
+            border-radius: 7px;
+            background: #f8fafc;
+        }
+
+        .sample-skill-icon {
+            flex: 0 0 auto;
+            width: 42px;
+            height: 42px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            background: var(--brand-soft);
+            color: var(--brand);
+        }
+
+        .sample-skill-text {
+            min-width: 0;
+            display: grid;
+            gap: 4px;
+        }
+
+        .sample-skill-title {
+            color: var(--ink);
+            font-size: 15px;
+            font-weight: 900;
+        }
+
+        .sample-skill-desc {
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1.5;
+        }
+
+        .chat-message {
+            max-width: min(760px, 88%);
+            padding: 12px 14px;
+            border: 1px solid #d8e2ef;
+            border-radius: 8px;
+            background: #ffffff;
+            color: #26364d;
+            font-size: 14px;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .chat-message.user {
+            align-self: flex-end;
+            border-color: var(--brand);
+            background: var(--brand);
+            color: #ffffff;
+        }
+
+        .chat-message.assistant {
+            align-self: flex-start;
+            white-space: normal;
+        }
+
+        .chat-message.error {
+            border-color: #fecaca;
+            background: #fff7f7;
+            color: var(--danger);
+        }
+
+        .markdown-body {
+            min-width: 0;
+            max-width: 100%;
+            line-height: 1.7;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+
+        .markdown-body > *:first-child {
+            margin-top: 0;
+        }
+
+        .markdown-body > *:last-child {
+            margin-bottom: 0;
+        }
+
+        .markdown-body p,
+        .markdown-body ul,
+        .markdown-body ol,
+        .markdown-body pre,
+        .markdown-body blockquote,
+        .markdown-body table {
+            margin: 0 0 12px;
+        }
+
+        .markdown-body h1,
+        .markdown-body h2,
+        .markdown-body h3,
+        .markdown-body h4 {
+            margin: 16px 0 8px;
+            color: var(--ink);
+            line-height: 1.35;
+        }
+
+        .markdown-body h1 {
+            font-size: 22px;
+        }
+
+        .markdown-body h2 {
+            font-size: 19px;
+        }
+
+        .markdown-body h3 {
+            font-size: 17px;
+        }
+
+        .markdown-body ul,
+        .markdown-body ol {
+            padding-left: 22px;
+        }
+
+        .markdown-body code {
+            padding: 2px 5px;
+            border-radius: 5px;
+            background: #edf2f7;
+            color: #0f172a;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+            font-size: 0.92em;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+
+        .markdown-body pre {
+            max-width: 100%;
+            overflow: hidden;
+            padding: 12px;
+            border-radius: 8px;
+            background: #0f172a;
+            color: #e2e8f0;
+            white-space: pre-wrap;
+        }
+
+        .markdown-body pre code {
+            padding: 0;
+            background: transparent;
+            color: inherit;
+            white-space: pre-wrap;
+        }
+
+        .markdown-body table {
+            display: table;
+            width: 100%;
+            max-width: 100%;
+            table-layout: fixed;
+            border-collapse: collapse;
+        }
+
+        .markdown-body th,
+        .markdown-body td {
+            padding: 8px 10px;
+            border: 1px solid #dbe6f2;
+            text-align: left;
+            vertical-align: top;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+
+        .markdown-body th {
+            background: #f1f5f9;
+            font-weight: 900;
+        }
+
+        .typing {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            min-width: 58px;
+        }
+
+        .typing-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 999px;
+            background: #9aa8bb;
+            animation: typingPulse 0.9s ease-in-out infinite;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.12s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.24s;
+        }
+
+        @keyframes typingPulse {
+            0%, 80%, 100% {
+                opacity: 0.35;
+                transform: translateY(0);
+            }
+            40% {
+                opacity: 1;
+                transform: translateY(-3px);
+            }
+        }
+
+        .chat-form {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .chat-actions {
+            display: grid;
+            gap: 8px;
+            align-content: start;
+        }
+
+        .chat-actions button {
+            width: 110px;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 10px;
+            border-radius: 999px;
+            background: var(--brand-soft);
+            color: var(--brand);
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .status-pill.is-checking,
+        .status-pill.is-starting {
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+
+        .status-pill.is-ready {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status-pill.is-error {
+            background: #fee2e2;
+            color: var(--danger);
+        }
+
+        dialog {
+            width: min(560px, calc(100% - 32px));
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 0;
+            color: var(--ink);
+            background: #ffffff;
+            box-shadow: 0 24px 70px rgba(15, 23, 42, 0.22);
+        }
+
+        dialog::backdrop {
+            background: rgba(15, 23, 42, 0.42);
+        }
+
+        .dialog-head,
+        .dialog-foot {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--line);
+            font-weight: 900;
+        }
+
+        .dialog-foot {
+            justify-content: flex-end;
+            border-top: 1px solid var(--line);
+            border-bottom: 0;
+        }
+
+        .dialog-body {
+            display: grid;
+            gap: 12px;
+            padding: 18px;
+        }
+
+        @media (max-width: 860px) {
+            .layout {
+                grid-template-columns: 1fr;
+            }
+
+            .sample-chat-workspace {
+                grid-template-columns: 1fr;
+            }
+
+            .sample-task-workspace {
+                grid-template-columns: 1fr;
+            }
+
+            .sample-msg-workspace {
+                grid-template-columns: 1fr;
+            }
+
+            .actions {
+                grid-template-columns: 1fr;
+            }
+
+            .sample-msg-actions {
+                grid-template-columns: 1fr;
+            }
+
+            .sample-task-card {
+                grid-template-columns: 1fr;
+            }
+
+            .sample-task-actions {
+                justify-content: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="page">
+        <div class="topbar">
+            <a class="back-link" href="/main.html" aria-label="回到主畫面"><i class="fa-solid fa-arrow-left"></i> 回到主畫面</a>
+            <div class="panel-tabs" role="tablist" aria-label="SampleR Plugin 功能切換">
+                <button class="panel-tab is-active" type="button" role="tab" id="sampleTabActions" aria-selected="true" aria-controls="sampleActionsPanel" data-sample-tab="actions">
+                    <i class="fa-solid fa-screwdriver-wrench"></i> API 操作範例
+                </button>
+                <button class="panel-tab" type="button" role="tab" id="sampleTabChat" aria-selected="false" aria-controls="sampleChatPanel" data-sample-tab="chat">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> 專屬 Skill 對話
+                </button>
+                <button class="panel-tab" type="button" role="tab" id="sampleTabSchedule" aria-selected="false" aria-controls="sampleSchedulePanel" data-sample-tab="schedule">
+                    <i class="fa-solid fa-clock-rotate-left"></i> 定期任務
+                </button>
+                <button class="panel-tab" type="button" role="tab" id="sampleTabMessages" aria-selected="false" aria-controls="sampleMessagesPanel" data-sample-tab="messages">
+                    <i class="fa-solid fa-tower-broadcast"></i> 即時訊息
+                </button>
+            </div>
+            <span class="status-pill is-checking" id="runtimeStatus"><i class="fa-solid fa-circle-notch fa-spin"></i> 檢查中</span>
+            <script>
+                (function () {
+                    function escapeHTML(value) {
+                        return String(value || "")
+                            .replaceAll("&", "&amp;")
+                            .replaceAll("<", "&lt;")
+                            .replaceAll(">", "&gt;")
+                            .replaceAll('"', "&quot;")
+                            .replaceAll("'", "&#039;");
+                    }
+                    function cookieValue(name) {
+                        var prefix = encodeURIComponent(name) + "=";
+                        var fallbackPrefix = name + "=";
+                        var found = document.cookie.split(";").map(function (item) {
+                            return item.trim();
+                        }).find(function (item) {
+                            return item.indexOf(prefix) === 0 || item.indexOf(fallbackPrefix) === 0;
+                        });
+                        return found ? found.slice(found.indexOf("=") + 1) : "";
+                    }
+                    function authHeaders() {
+                        var names = ["agentic_auth_token", "auth_token", "authToken", "token", "Authentication", "Authorization"];
+                        var raw = names.map(cookieValue).find(Boolean);
+                        if (!raw) return {};
+                        var decoded = "";
+                        try {
+                            decoded = decodeURIComponent(raw).trim();
+                        } catch {
+                            decoded = raw.trim();
+                        }
+                        if (!decoded) return {};
+                        var bearer = /^Bearer\s+/i.test(decoded) ? decoded : "Bearer " + decoded;
+                        return { "Authentication": bearer, "Authorization": bearer };
+                    }
+                    function setStatus(type, text, icon) {
+                        var el = document.getElementById("runtimeStatus");
+                        if (!el || el.dataset.fullLoadDone === "true") return;
+                        el.className = ("status-pill " + (type || "")).trim();
+                        el.innerHTML = '<i class="fa-solid ' + (icon || "fa-circle-info") + '"></i> ' + escapeHTML(text);
+                    }
+                    function fetchStatus(url) {
+                        var controller = new AbortController();
+                        var timer = window.setTimeout(function () {
+                            controller.abort();
+                        }, 3200);
+                        return fetch(url, {
+                            cache: "no-store",
+                            credentials: "same-origin",
+                            headers: Object.assign({ "Accept": "application/json" }, authHeaders()),
+                            signal: controller.signal
+                        }).then(function (response) {
+                            return response.ok ? response.json() : Promise.reject(new Error("HTTP " + response.status));
+                        }).finally(function () {
+                            window.clearTimeout(timer);
+                        });
+                    }
+                    var urls = [
+                        "/api/plugin/sample-r/api/sample-r/plugin/status",
+                        "/api/sample-r/plugin/status",
+                        "/api/plugin/sample-r/_plugin/status"
+                    ];
+                    var done = false;
+                    var remaining = urls.length;
+                    function markStatusProbeFailed() {
+                        remaining -= 1;
+                        if (!done && remaining <= 0) setStatus("is-checking", "連線待確認", "fa-circle-exclamation");
+                    }
+                    urls.forEach(function (url) {
+                        fetchStatus(url).then(function (data) {
+                            if (done) return;
+                            if (!data || data.success === false) {
+                                markStatusProbeFailed();
+                                return;
+                            }
+                            done = true;
+                            var loaded = Boolean(data.plugin && data.plugin.loaded);
+                            setStatus(loaded ? "is-ready" : "is-checking", loaded ? "已載入" : "未載入", loaded ? "fa-circle-check" : "fa-circle-info");
+                        }).catch(function () {
+                            markStatusProbeFailed();
+                        });
+                    });
+                }());
+            </script>
+        </div>
+
+        <div class="tab-panel" id="sampleActionsPanel" role="tabpanel" aria-labelledby="sampleTabActions" data-sample-tab-panel="actions">
+            <section class="layout">
+                <div class="panel">
+                    <div class="panel-body">
+                        <div class="actions">
+                            <button type="button" data-action="mcp"><i class="fa-solid fa-plug-circle-bolt"></i> MCP</button>
+                            <button type="button" data-action="config"><i class="fa-solid fa-gear"></i> Config</button>
+                            <button type="button" data-action="items"><i class="fa-solid fa-list"></i> Items</button>
+                            <button type="button" data-action="createItem"><i class="fa-solid fa-plus"></i> Create</button>
+                            <button type="button" data-action="job"><i class="fa-solid fa-gears"></i> Job</button>
+                        </div>
+                        <div class="form">
+                            <label>
+                                Echo 訊息
+                                <input id="echoMessage" value="hello sample-r plugin">
+                            </label>
+                            <button class="primary" type="button" data-action="echo"><i class="fa-solid fa-reply"></i> Echo</button>
+                            <label>
+                                JSON Body
+                                <textarea id="jsonBody">{"name":"demo item","value":{"enabled":true}}</textarea>
+                            </label>
+                            <button type="button" data-action="tool"><i class="fa-solid fa-screwdriver-wrench"></i> Tool Run</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-head">
+                        <span>回應輸出</span>
+                        <button type="button" id="clearOutput"><i class="fa-solid fa-eraser"></i> 清除</button>
+                    </div>
+                    <div class="panel-body">
+                        <pre class="output" id="output">尚未呼叫 API。</pre>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <div class="tab-panel" id="sampleChatPanel" role="tabpanel" aria-labelledby="sampleTabChat" data-sample-tab-panel="chat" hidden>
+            <section class="panel chat-page">
+                <div class="panel-head">
+                    <span>專屬 Skill 對話</span>
+                    <div class="sample-head-actions">
+                        <span class="status-pill"><i class="fa-solid fa-wand-magic-sparkles"></i> guide</span>
+                        <button type="button" id="sampleSkillAdd"><i class="fa-solid fa-plus"></i> 新增</button>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div class="sample-chat-workspace">
+                        <aside class="sample-skill-pane" aria-label="SampleR Plugin 預設 Skill">
+                            <div class="sample-skill-list" id="sampleSkillList">
+                                <div class="note">讀取 Skill 卡片中...</div>
+                            </div>
+                        </aside>
+                        <section class="sample-chat-pane">
+                            <div class="chat-log" id="sampleChatLog">
+                                <div class="chat-message assistant">請輸入 SampleR Plugin 開發問題。送出時會先透過 SampleR Plugin API 取得目前狀態、設定、資料與 MCP 協定及工具資訊，再導入專屬 SKILL.md 作為 SYSTEM PROMPT。</div>
+                            </div>
+                            <div class="chat-form">
+                                <textarea id="sampleChatInput" placeholder="請輸入 SampleR Plugin 開發問題..."></textarea>
+                                <div class="chat-actions">
+                                    <button class="primary" type="button" id="sampleChatSend"><i class="fa-solid fa-paper-plane"></i> 送出</button>
+                                    <button type="button" id="sampleChatClear"><i class="fa-solid fa-eraser"></i> 清除</button>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <div class="tab-panel" id="sampleSchedulePanel" role="tabpanel" aria-labelledby="sampleTabSchedule" data-sample-tab-panel="schedule" hidden>
+            <section class="panel">
+                <div class="panel-head">
+                    <span>定期任務</span>
+                    <div class="sample-head-actions">
+                        <span class="status-pill" id="sampleTaskCount"><i class="fa-solid fa-list-check"></i> 0 個任務</span>
+                        <button type="button" id="sampleTaskRefresh"><i class="fa-solid fa-rotate"></i> 重新整理</button>
+                        <button class="primary" type="button" id="sampleTaskAdd"><i class="fa-solid fa-plus"></i> 新增</button>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div class="sample-task-workspace">
+                        <section class="sample-task-pane" aria-label="定期任務列表">
+                            <div class="sample-task-section-head">
+                                <span>任務列表</span>
+                            </div>
+                            <div class="sample-task-list" id="sampleTaskList">
+                                <div class="note">讀取定期任務中...</div>
+                            </div>
+                        </section>
+                        <section class="sample-task-log-pane" aria-label="定期任務執行 LOG">
+                            <div class="sample-task-section-head">
+                                <span>執行 LOG</span>
+                                <div class="sample-task-log-tools">
+                                    <input class="sample-task-log-date" id="sampleTaskLogDate" type="date" aria-label="LOG 日期">
+                                    <div class="sample-task-log-pager" aria-label="LOG 筆數切換">
+                                        <button type="button" id="sampleTaskLogPrev" title="上一筆" aria-label="上一筆"><i class="fa-solid fa-chevron-up"></i></button>
+                                        <span class="sample-task-log-position" id="sampleTaskLogPosition">0 / 0</span>
+                                        <button type="button" id="sampleTaskLogNext" title="下一筆" aria-label="下一筆"><i class="fa-solid fa-chevron-down"></i></button>
+                                    </div>
+                                    <button type="button" id="sampleTaskLogRefresh"><i class="fa-solid fa-rotate"></i> 更新</button>
+                                </div>
+                            </div>
+                            <pre class="sample-task-log-output" id="sampleTaskLogOutput">尚未選擇任務。</pre>
+                        </section>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <div class="tab-panel" id="sampleMessagesPanel" role="tabpanel" aria-labelledby="sampleTabMessages" data-sample-tab-panel="messages" hidden>
+            <section class="panel">
+                <div class="panel-head">
+                    <span>即時訊息</span>
+                    <div class="sample-head-actions">
+                        <span class="status-pill is-checking" id="sampleMsgStatus"><i class="fa-solid fa-circle-info"></i> 未連線</span>
+                        <button type="button" id="sampleMsgRefresh"><i class="fa-solid fa-rotate"></i> 更新紀錄</button>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div class="sample-msg-workspace">
+                        <section class="sample-msg-pane" aria-label="即時訊息操作">
+                            <div class="sample-task-section-head">
+                                <span>發布與訂閱</span>
+                            </div>
+                            <div class="panel-body">
+                                <div class="form" style="margin-top:0">
+                                    <label>
+                                        Topic
+                                        <input id="sampleMsgTopic" value="sample-r.notice">
+                                    </label>
+                                    <label>
+                                        Event
+                                        <input id="sampleMsgEvent" value="created">
+                                    </label>
+                                    <label>
+                                        Payload JSON
+                                        <textarea id="sampleMsgPayload">{"message":"hello from sample-r message demo"}</textarea>
+                                    </label>
+                                    <div class="sample-msg-actions">
+                                        <button class="primary" type="button" id="sampleMsgPublishPlugin"><i class="fa-solid fa-plug"></i> Plugin 發布</button>
+                                        <button type="button" id="sampleMsgPublishBrowser"><i class="fa-solid fa-window-maximize"></i> Browser 發布</button>
+                                        <button type="button" id="sampleMsgConnect"><i class="fa-solid fa-satellite-dish"></i> 訂閱 SSE</button>
+                                        <button type="button" id="sampleMsgDisconnect"><i class="fa-solid fa-circle-stop"></i> 停止訂閱</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                        <section class="sample-msg-log-pane" aria-label="即時訊息紀錄">
+                            <div class="sample-task-section-head">
+                                <span>訊息紀錄</span>
+                                <div class="sample-task-log-tools">
+                                    <button type="button" id="sampleMsgClearLocal"><i class="fa-solid fa-eraser"></i> 清除畫面</button>
+                                    <button type="button" id="sampleMsgClearPlugin"><i class="fa-solid fa-trash"></i> 清空 Webhook</button>
+                                </div>
+                            </div>
+                            <pre class="sample-msg-log-output" id="sampleMsgLogOutput">尚未訂閱或接收訊息。</pre>
+                        </section>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <dialog id="sampleSkillCardDialog">
+        <form method="dialog" id="sampleSkillCardForm">
+            <div class="dialog-head">
+                <span id="sampleSkillCardDialogTitle">新增 Skill</span>
+                <button type="button" data-close-sample-skill-dialog aria-label="關閉"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="dialog-body">
+                <label>
+                    標題
+                    <input id="sampleSkillTitleInput" required>
+                </label>
+                <label>
+                    描述
+                    <input id="sampleSkillDescInput">
+                </label>
+                <label>
+                    Icon
+                    <input id="sampleSkillIconInput" placeholder="fa-heart-pulse">
+                </label>
+                <label>
+                    預設對話
+                    <textarea id="sampleSkillPromptInput" required></textarea>
+                </label>
+            </div>
+            <div class="dialog-foot">
+                <button type="button" data-close-sample-skill-dialog>取消</button>
+                <button class="primary" type="submit"><i class="fa-solid fa-floppy-disk"></i> 儲存</button>
+            </div>
+        </form>
+    </dialog>
+
+    <dialog id="sampleSkillDeleteDialog">
+        <form method="dialog" id="sampleSkillDeleteForm">
+            <div class="dialog-head">
+                <span>刪除 Skill</span>
+                <button type="button" data-close-sample-skill-delete aria-label="關閉"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="dialog-body">
+                <div id="sampleSkillDeleteMessage">確定要刪除此 Skill？</div>
+            </div>
+            <div class="dialog-foot">
+                <button type="button" data-close-sample-skill-delete>取消</button>
+                <button class="primary" type="submit"><i class="fa-solid fa-trash"></i> 刪除</button>
+            </div>
+        </form>
+    </dialog>
+
+    <dialog id="sampleTaskDialog">
+        <form method="dialog" id="sampleTaskForm">
+            <div class="dialog-head">
+                <span id="sampleTaskDialogTitle">新增定期任務</span>
+                <button type="button" data-close-sample-task-dialog aria-label="關閉"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="dialog-body">
+                <label>
+                    任務名稱
+                    <input id="sampleTaskNameInput" required>
+                </label>
+                <label>
+                    任務 ID
+                    <input id="sampleTaskIdInput" placeholder="sample_hourly_job">
+                </label>
+                <label>
+                    執行間隔（分鐘）
+                    <input id="sampleTaskIntervalInput" type="number" min="1" max="1440" value="60">
+                </label>
+                <label>
+                    執行動作
+                    <select id="sampleTaskActionInput">
+                        <option value="job">建立背景工作</option>
+                        <option value="echo">Echo</option>
+                        <option value="tool">Tool Run</option>
+                    </select>
+                </label>
+                <label class="field-inline">
+                    <input id="sampleTaskEnabledInput" type="checkbox">
+                    啟用定期執行
+                </label>
+                <label>
+                    Payload JSON
+                    <textarea id="sampleTaskPayloadInput">{"message":"sample-r scheduled background job"}</textarea>
+                </label>
+            </div>
+            <div class="dialog-foot">
+                <button type="button" data-close-sample-task-dialog>取消</button>
+                <button class="primary" type="submit"><i class="fa-solid fa-floppy-disk"></i> 儲存</button>
+            </div>
+        </form>
+    </dialog>
+
+    <script src="/assets/js/api.js?v=3"></script>
+    <script src="/assets/vendor/marked.min.js?v=1"></script>
+    <script src="/assets/vendor/purify.min.js?v=1"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+    <script>
+        const output = document.getElementById("output");
+        const runtimeStatus = document.getElementById("runtimeStatus");
+        const sampleChatLog = document.getElementById("sampleChatLog");
+        const sampleChatInput = document.getElementById("sampleChatInput");
+        const sampleChatSend = document.getElementById("sampleChatSend");
+        const sampleChatClear = document.getElementById("sampleChatClear");
+        const sampleSkillList = document.getElementById("sampleSkillList");
+        const sampleSkillAdd = document.getElementById("sampleSkillAdd");
+        const sampleSkillCardDialog = document.getElementById("sampleSkillCardDialog");
+        const sampleSkillCardForm = document.getElementById("sampleSkillCardForm");
+        const sampleSkillCardDialogTitle = document.getElementById("sampleSkillCardDialogTitle");
+        const sampleSkillTitleInput = document.getElementById("sampleSkillTitleInput");
+        const sampleSkillDescInput = document.getElementById("sampleSkillDescInput");
+        const sampleSkillIconInput = document.getElementById("sampleSkillIconInput");
+        const sampleSkillPromptInput = document.getElementById("sampleSkillPromptInput");
+        const sampleSkillDeleteDialog = document.getElementById("sampleSkillDeleteDialog");
+        const sampleSkillDeleteForm = document.getElementById("sampleSkillDeleteForm");
+        const sampleSkillDeleteMessage = document.getElementById("sampleSkillDeleteMessage");
+        const sampleTaskList = document.getElementById("sampleTaskList");
+        const sampleTaskCount = document.getElementById("sampleTaskCount");
+        const sampleTaskAdd = document.getElementById("sampleTaskAdd");
+        const sampleTaskRefresh = document.getElementById("sampleTaskRefresh");
+        const sampleTaskLogRefresh = document.getElementById("sampleTaskLogRefresh");
+        const sampleTaskLogDate = document.getElementById("sampleTaskLogDate");
+        const sampleTaskLogPrev = document.getElementById("sampleTaskLogPrev");
+        const sampleTaskLogNext = document.getElementById("sampleTaskLogNext");
+        const sampleTaskLogPosition = document.getElementById("sampleTaskLogPosition");
+        const sampleTaskLogOutput = document.getElementById("sampleTaskLogOutput");
+        const sampleTaskDialog = document.getElementById("sampleTaskDialog");
+        const sampleTaskForm = document.getElementById("sampleTaskForm");
+        const sampleTaskDialogTitle = document.getElementById("sampleTaskDialogTitle");
+        const sampleTaskNameInput = document.getElementById("sampleTaskNameInput");
+        const sampleTaskIdInput = document.getElementById("sampleTaskIdInput");
+        const sampleTaskIntervalInput = document.getElementById("sampleTaskIntervalInput");
+        const sampleTaskActionInput = document.getElementById("sampleTaskActionInput");
+        const sampleTaskEnabledInput = document.getElementById("sampleTaskEnabledInput");
+        const sampleTaskPayloadInput = document.getElementById("sampleTaskPayloadInput");
+        const sampleMsgStatus = document.getElementById("sampleMsgStatus");
+        const sampleMsgRefresh = document.getElementById("sampleMsgRefresh");
+        const sampleMsgTopic = document.getElementById("sampleMsgTopic");
+        const sampleMsgEvent = document.getElementById("sampleMsgEvent");
+        const sampleMsgPayload = document.getElementById("sampleMsgPayload");
+        const sampleMsgPublishPlugin = document.getElementById("sampleMsgPublishPlugin");
+        const sampleMsgPublishBrowser = document.getElementById("sampleMsgPublishBrowser");
+        const sampleMsgConnect = document.getElementById("sampleMsgConnect");
+        const sampleMsgDisconnect = document.getElementById("sampleMsgDisconnect");
+        const sampleMsgClearLocal = document.getElementById("sampleMsgClearLocal");
+        const sampleMsgClearPlugin = document.getElementById("sampleMsgClearPlugin");
+        const sampleMsgLogOutput = document.getElementById("sampleMsgLogOutput");
+        const sampleApiDefaultTimeoutMs = 9000;
+        const sampleFallbackSkillCards = [
+            {
+                id: "status",
+                title: "外掛狀態診斷",
+                description: "檢查 service、config、items 與載入狀態。",
+                icon: "fa-heart-pulse",
+                prompt: "請根據目前 SampleR Plugin 的即時狀態、設定、items 與載入資訊，判斷外掛是否可正常運作，並列出需要修正或確認的項目。"
+            },
+            {
+                id: "api",
+                title: "API 串接建議",
+                description: "產生 CallPlugin / fetchPlugin 呼叫範例。",
+                icon: "fa-route",
+                prompt: "請依目前 SampleR Plugin 可用 API，整理前端透過 fetchPlugin 呼叫外掛的建議寫法，包含常見 GET / POST 範例與錯誤處理方式。"
+            },
+            {
+                id: "mcp",
+                title: "MCP 能力盤點",
+                description: "整理標準協定、工具與權限邊界。",
+                icon: "fa-plug-circle-bolt",
+                prompt: "請根據目前 SampleR Plugin 的 MCP 協定與 tools/list 定義，說明它提供哪些工具、讀寫刪除邊界，以及主服務可以如何透過 MCP 操作它。"
+            },
+            {
+                id: "developer",
+                title: "開發移植檢查",
+                description: "檢查自定義 plugin 要替換的檔案與設定。",
+                icon: "fa-code",
+                prompt: "請把 SampleR Plugin 當成 Rust 開發模板，列出開發自定義 plugin 時需要調整的檔案、plugin.json 設定、API endpoint、標準 MCP Server 與部署注意事項。"
+            }
+        ];
+        let sampleSkillCards = [];
+        let sampleScheduledTasks = [];
+        let editingSampleSkillCardId = "";
+        let editingSampleTaskId = "";
+        let selectedSampleTaskId = "";
+        let sampleTaskLogs = [];
+        let sampleTaskLogIndex = 0;
+        let deletingSampleSkillCardId = "";
+        let sampleChatHistory = [];
+        let sampleChatSessionId = `sample_r_plugin_${Date.now()}`;
+        let sampleChatStreaming = false;
+        let sampleSkillGuideCache = "";
+        let sampleSkillGuideCacheAt = 0;
+        let sampleLiveContextCache = "";
+        let sampleLiveContextCacheAt = 0;
+        let sampleMsgAbortController = null;
+        let sampleMsgLastEventID = 0;
+        let sampleMsgLiveEvents = [];
+        let sampleMsgWebhookEvents = [];
+
+        function sampleAuthHeadersFromCookie() {
+            const names = ["agentic_auth_token", "auth_token", "authToken", "token", "Authentication", "Authorization"];
+            const cookies = String(document.cookie || "").split(";").map((part) => part.trim()).filter(Boolean);
+            for (const name of names) {
+                const encodedPrefix = `${encodeURIComponent(name)}=`;
+                const plainPrefix = `${name}=`;
+                const found = cookies.find((cookie) => cookie.startsWith(encodedPrefix) || cookie.startsWith(plainPrefix));
+                if (!found) continue;
+                const raw = found.slice(found.indexOf("=") + 1);
+                let token = "";
+                try {
+                    token = decodeURIComponent(raw).trim();
+                } catch {
+                    token = raw.trim();
+                }
+                if (!token) continue;
+                const value = token.toLowerCase().startsWith("bearer ") ? token : `Bearer ${token}`;
+                return { Authentication: value, Authorization: value };
+            }
+            return {};
+        }
+
+        function withSampleAuthHeaders(options = {}) {
+            return {
+                ...options,
+                credentials: options.credentials || "same-origin",
+                headers: {
+                    ...sampleAuthHeadersFromCookie(),
+                    ...(options.headers || {})
+                }
+            };
+        }
+
+        function sampleRequestTimeoutMs(options = {}) {
+            const timeout = Number(options.timeoutMs || sampleApiDefaultTimeoutMs);
+            return Number.isFinite(timeout) && timeout > 0 ? timeout : sampleApiDefaultTimeoutMs;
+        }
+
+        function withSampleTimeout(promise, options = {}) {
+            const timeout = sampleRequestTimeoutMs(options);
+            let timer = 0;
+            const timeoutPromise = new Promise((_, reject) => {
+                timer = window.setTimeout(() => reject(new Error(`外掛 API 等待逾時 (${Math.round(timeout / 1000)} 秒)`)), timeout);
+            });
+            return Promise.race([promise, timeoutPromise]).finally(() => window.clearTimeout(timer));
+        }
+
+        async function rawFetchJSON(url, options = {}) {
+            const { timeoutMs, ...fetchOptions } = options;
+            const headers = { ...sampleAuthHeadersFromCookie(), ...(fetchOptions.headers || {}) };
+            if (!(options.body instanceof FormData)) headers["Content-Type"] = "application/json";
+            const controller = fetchOptions.signal ? null : new AbortController();
+            const timer = controller ? window.setTimeout(() => controller.abort(), sampleRequestTimeoutMs({ timeoutMs })) : 0;
+            try {
+                const response = await fetch(url, {
+                    credentials: "same-origin",
+                    ...fetchOptions,
+                    headers,
+                    signal: fetchOptions.signal || controller?.signal
+                });
+                const text = await response.text();
+                let data = {};
+                try {
+                    data = text ? JSON.parse(text) : {};
+                } catch (error) {
+                    data = { success: false, error: text || error.message };
+                }
+                if (!response.ok && !data.error) data.error = `HTTP ${response.status}`;
+                return data;
+            } finally {
+                if (timer) window.clearTimeout(timer);
+            }
+        }
+
+        async function appFetchJSON(url, options = {}) {
+            const request = { timeoutMs: sampleApiDefaultTimeoutMs, ...options };
+            if (typeof window.AgenticTalkAPI?.apiFetch === "function") {
+                return withSampleTimeout(window.AgenticTalkAPI.apiFetch(url, withSampleAuthHeaders(request)), request);
+            }
+            return rawFetchJSON(url, request);
+        }
+
+        async function sampleApi(path, options = {}) {
+            const normalized = String(path || "").startsWith("/") ? String(path || "") : `/${path || ""}`;
+            const request = { timeoutMs: sampleApiDefaultTimeoutMs, ...options };
+            if (typeof window.AgenticTalkAPI?.fetchPlugin === "function") {
+                return withSampleTimeout(window.AgenticTalkAPI.fetchPlugin("sample-r", normalized, withSampleAuthHeaders(request)), request);
+            }
+            return appFetchJSON(normalized, request);
+        }
+
+        async function samplePluginControl(path, options = {}) {
+            const normalized = String(path || "").startsWith("/") ? String(path || "") : `/${path || ""}`;
+            const request = { timeoutMs: sampleApiDefaultTimeoutMs, ...options };
+            if (typeof window.AgenticTalkAPI?.fetchPluginControl === "function") {
+                return withSampleTimeout(window.AgenticTalkAPI.fetchPluginControl("sample-r", normalized, withSampleAuthHeaders(request)), request);
+            }
+            const gateway = await appFetchJSON(`/api/plugin/sample-r/_plugin${normalized}`, request);
+            if (gateway.success || !String(gateway.error || "").includes("HTTP 404")) {
+                return gateway;
+            }
+            const command = normalized.replace(/^\/+/, "") || "status";
+            if (command === "mcp") return sampleApi("/api/sample-r/mcp", request);
+            return appFetchJSON(`/api/sample-r/plugin/${command}`, request);
+        }
+
+        function samplePluginCommandFromPath(path) {
+            const match = String(path || "").match(/^\/api\/sample-r\/plugin\/([^/?#]+)/);
+            return match ? `/${match[1]}` : "";
+        }
+
+        function printResult(title, data) {
+            output.textContent = `${title}\n\n${JSON.stringify(data, null, 2)}`;
+        }
+
+        function setBusy(isBusy) {
+            document.querySelectorAll("button").forEach((button) => {
+                if (button.id !== "clearOutput" && !button.dataset.sampleTab) button.disabled = isBusy;
+            });
+        }
+
+        function activateSampleTab(tabName) {
+            const allowed = new Set(["actions", "chat", "schedule", "messages"]);
+            const name = allowed.has(tabName) ? tabName : "actions";
+            document.querySelectorAll("[data-sample-tab]").forEach((button) => {
+                const active = button.dataset.sampleTab === name;
+                button.classList.toggle("is-active", active);
+                button.setAttribute("aria-selected", active ? "true" : "false");
+                button.tabIndex = active ? 0 : -1;
+            });
+            document.querySelectorAll("[data-sample-tab-panel]").forEach((panel) => {
+                panel.hidden = panel.dataset.sampleTabPanel !== name;
+            });
+            if (name === "chat") {
+                prewarmSampleChatContext();
+            }
+        }
+
+        function prewarmSampleChatContext() {
+            fetchSampleSkillGuide().catch(() => {});
+            fetchSampleLiveContext().catch(() => {});
+        }
+
+        function normalizeIconClass(icon) {
+            const raw = String(icon || "").trim();
+            if (!raw) return "fa-solid fa-wand-magic-sparkles";
+            if (raw.includes("fa-solid") || raw.includes("fa-regular") || raw.includes("fa-brands")) return raw;
+            return `fa-solid ${raw}`;
+        }
+
+        function normalizeSampleSkillCard(card) {
+            return {
+                id: String(card?.id || "").trim(),
+                title: String(card?.title || "").trim(),
+                description: String(card?.description || "").trim(),
+                icon: String(card?.icon || "fa-wand-magic-sparkles").trim(),
+                prompt: String(card?.prompt || "").trim()
+            };
+        }
+
+        function renderSampleSkillCards() {
+            if (!sampleSkillList) return;
+            const cards = sampleSkillCards.map(normalizeSampleSkillCard).filter((card) => card.id && card.title && card.prompt);
+            if (!cards.length) {
+                sampleSkillList.innerHTML = `<div class="note">尚未建立 Skill 卡片。</div>`;
+                return;
+            }
+            sampleSkillList.innerHTML = cards.map((card) => `
+                <div class="sample-skill-card" role="button" tabindex="0" data-sample-chat-skill="${escapeHtml(card.id)}" title="${escapeHtml(card.title)}">
+                    <span class="sample-skill-card-main">
+                        <span class="sample-skill-icon"><i class="${escapeHtml(normalizeIconClass(card.icon))}"></i></span>
+                        <span class="sample-skill-text">
+                            <span class="sample-skill-title">${escapeHtml(card.title)}</span>
+                            <span class="sample-skill-desc">${escapeHtml(card.description)}</span>
+                        </span>
+                    </span>
+                    <span class="sample-skill-actions" aria-label="Skill 操作">
+                        <button class="sample-skill-action" type="button" title="編輯" aria-label="編輯" data-sample-skill-action="edit" data-sample-skill-id="${escapeHtml(card.id)}">
+                            <i class="fa-solid fa-pen"></i>
+                        </button>
+                        <button class="sample-skill-action" type="button" title="刪除" aria-label="刪除" data-sample-skill-action="delete" data-sample-skill-id="${escapeHtml(card.id)}">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </span>
+                </div>
+            `).join("");
+        }
+
+        async function loadSampleSkillCards() {
+            try {
+                const data = await sampleApi("/api/sample-r/skills/cards", { method: "GET", cache: "no-store", timeoutMs: 6000 });
+                sampleSkillCards = Array.isArray(data?.cards) && data.cards.length ? data.cards : sampleFallbackSkillCards;
+            } catch (error) {
+                sampleSkillCards = sampleFallbackSkillCards;
+            }
+            renderSampleSkillCards();
+        }
+
+        function openSampleSkillCardDialog(card = null) {
+            editingSampleSkillCardId = String(card?.id || "").trim();
+            if (sampleSkillCardDialogTitle) sampleSkillCardDialogTitle.textContent = editingSampleSkillCardId ? "編輯 Skill" : "新增 Skill";
+            if (sampleSkillTitleInput) sampleSkillTitleInput.value = card?.title || "";
+            if (sampleSkillDescInput) sampleSkillDescInput.value = card?.description || "";
+            if (sampleSkillIconInput) sampleSkillIconInput.value = card?.icon || "fa-wand-magic-sparkles";
+            if (sampleSkillPromptInput) sampleSkillPromptInput.value = card?.prompt || "";
+            sampleSkillCardDialog?.showModal();
+            sampleSkillTitleInput?.focus();
+        }
+
+        async function saveSampleSkillCard() {
+            const card = normalizeSampleSkillCard({
+                title: sampleSkillTitleInput?.value,
+                description: sampleSkillDescInput?.value,
+                icon: sampleSkillIconInput?.value,
+                prompt: sampleSkillPromptInput?.value
+            });
+            if (!card.title || !card.prompt) return;
+            const path = editingSampleSkillCardId
+                ? `/api/sample-r/skills/cards/${encodeURIComponent(editingSampleSkillCardId)}`
+                : "/api/sample-r/skills/cards";
+            const method = editingSampleSkillCardId ? "PUT" : "POST";
+            try {
+                const data = await sampleApi(path, {
+                    method,
+                    body: JSON.stringify(card)
+                });
+                if (!data?.success) throw new Error(data?.error || "Skill 儲存失敗。");
+                sampleSkillCards = Array.isArray(data.cards) ? data.cards : sampleSkillCards;
+                sampleSkillCardDialog?.close();
+                renderSampleSkillCards();
+                await loadSampleSkillCards();
+            } catch (error) {
+                window.alert(error?.message || "Skill 儲存失敗。");
+            }
+        }
+
+        function openSampleSkillDeleteDialog(card) {
+            deletingSampleSkillCardId = String(card?.id || "").trim();
+            if (!deletingSampleSkillCardId) return;
+            if (sampleSkillDeleteMessage) {
+                sampleSkillDeleteMessage.textContent = `確定要刪除「${card.title || deletingSampleSkillCardId}」？`;
+            }
+            sampleSkillDeleteDialog?.showModal();
+        }
+
+        async function deleteSampleSkillCard() {
+            if (!deletingSampleSkillCardId) return;
+            try {
+                const data = await sampleApi(`/api/sample-r/skills/cards/${encodeURIComponent(deletingSampleSkillCardId)}`, {
+                    method: "DELETE"
+                });
+                if (!data?.success) throw new Error(data?.error || "Skill 刪除失敗。");
+                sampleSkillCards = Array.isArray(data.cards) ? data.cards : sampleSkillCards.filter((card) => card.id !== deletingSampleSkillCardId);
+                deletingSampleSkillCardId = "";
+                sampleSkillDeleteDialog?.close();
+                renderSampleSkillCards();
+            } catch (error) {
+                window.alert(error?.message || "Skill 刪除失敗。");
+            }
+        }
+
+        function applySampleSkillPrompt(id) {
+            const card = sampleSkillCards.find((item) => String(item.id || "") === String(id || ""));
+            if (!card?.prompt || !sampleChatInput) return;
+            sampleChatInput.value = card.prompt;
+            sampleChatInput.focus();
+            sampleChatInput.setSelectionRange?.(sampleChatInput.value.length, sampleChatInput.value.length);
+        }
+
+        function normalizeSampleTask(task) {
+            return {
+                id: String(task?.id || "").trim(),
+                name: String(task?.name || "").trim(),
+                enabled: task?.enabled !== false,
+                interval_minutes: Math.max(1, Math.min(1440, Number(task?.interval_minutes || 60) || 60)),
+                action: String(task?.action || "job").trim() || "job",
+                payload: task?.payload && typeof task.payload === "object" ? task.payload : {},
+                last_run_at: String(task?.last_run_at || "").trim(),
+                next_run_at: String(task?.next_run_at || "").trim(),
+                running_until: String(task?.running_until || "").trim(),
+                run_token: String(task?.run_token || "").trim(),
+                last_started_at: String(task?.last_started_at || "").trim(),
+                last_result: String(task?.last_result || "").trim(),
+                last_error: String(task?.last_error || "").trim(),
+                created_at: String(task?.created_at || "").trim(),
+                updated_at: String(task?.updated_at || "").trim()
+            };
+        }
+
+        function sampleTaskActionText(action) {
+            switch (String(action || "").toLowerCase()) {
+                case "echo":
+                    return "Echo";
+                case "tool":
+                    return "Tool Run";
+                default:
+                    return "背景工作";
+            }
+        }
+
+        function sampleDisplayTime(value) {
+            const text = String(value || "").trim();
+            if (!text) return "尚無";
+            const date = new Date(text);
+            if (Number.isNaN(date.getTime())) return text;
+            return date.toLocaleString("zh-TW", { hour12: false });
+        }
+
+        function sampleTaskStatus(task) {
+            const now = Date.now();
+            const runningUntil = Date.parse(task.running_until || "");
+            if (Number.isFinite(runningUntil) && runningUntil > now) {
+                return { text: "執行中", className: "is-starting", icon: "fa-circle-notch fa-spin" };
+            }
+            if (task.enabled === false) {
+                return { text: "停用", className: "is-checking", icon: "fa-circle-pause" };
+            }
+            if (task.last_error) {
+                return { text: "錯誤", className: "is-error", icon: "fa-triangle-exclamation" };
+            }
+            return { text: "啟用", className: "is-ready", icon: "fa-circle-check" };
+        }
+
+        function sampleTodayString() {
+            const now = new Date();
+            const month = String(now.getMonth() + 1).padStart(2, "0");
+            const day = String(now.getDate()).padStart(2, "0");
+            return `${now.getFullYear()}-${month}-${day}`;
+        }
+
+        function sampleTaskLogLines(entry) {
+            if (!entry) return ["此日期沒有執行 LOG。"];
+            const lines = [
+                `LOG ID：${entry.id || "尚無"}`,
+                `任務：${entry.task_name || entry.task_id || "尚無"}`,
+                `任務 ID：${entry.task_id || "尚無"}`,
+                `狀態：${entry.status || "尚無"}`,
+                `手動執行：${entry.manual ? "是" : "否"}`,
+                `動作：${sampleTaskActionText(entry.action)}`,
+                `開始時間：${sampleDisplayTime(entry.started_at)}`,
+                `完成時間：${sampleDisplayTime(entry.finished_at)}`,
+                `建立時間：${sampleDisplayTime(entry.created_at)}`,
+                ""
+            ];
+            if (entry.error) {
+                lines.push("錯誤：", entry.error, "");
+            }
+            if (entry.result) {
+                lines.push("結果：", entry.result, "");
+            }
+            lines.push("Payload：", JSON.stringify(entry.payload || {}, null, 2));
+            return lines;
+        }
+
+        function renderSampleTaskLog() {
+            if (!sampleTaskLogOutput) return;
+            const count = sampleTaskLogs.length;
+            if (sampleTaskLogIndex < 0) sampleTaskLogIndex = 0;
+            if (sampleTaskLogIndex >= count) sampleTaskLogIndex = Math.max(0, count - 1);
+            const entry = count ? sampleTaskLogs[sampleTaskLogIndex] : null;
+            if (sampleTaskLogPosition) sampleTaskLogPosition.textContent = `${count ? sampleTaskLogIndex + 1 : 0} / ${count}`;
+            if (sampleTaskLogPrev) sampleTaskLogPrev.disabled = sampleTaskLogIndex <= 0;
+            if (sampleTaskLogNext) sampleTaskLogNext.disabled = sampleTaskLogIndex >= count - 1;
+            if (!selectedSampleTaskId) {
+                sampleTaskLogOutput.textContent = "請先選擇左側任務。";
+                return;
+            }
+            sampleTaskLogOutput.textContent = sampleTaskLogLines(entry).join("\n");
+        }
+
+        async function loadSampleTaskLogs() {
+            if (!sampleTaskLogDate) return;
+            if (!sampleTaskLogDate.value) sampleTaskLogDate.value = sampleTodayString();
+            if (!selectedSampleTaskId) {
+                sampleTaskLogs = [];
+                sampleTaskLogIndex = 0;
+                renderSampleTaskLog();
+                return;
+            }
+            try {
+                const params = new URLSearchParams({
+                    date: sampleTaskLogDate.value,
+                    task_id: selectedSampleTaskId
+                });
+                const data = await sampleApi(`/api/sample-r/scheduled-logs?${params.toString()}`, { method: "GET", cache: "no-store", timeoutMs: 6000 });
+                if (!data?.success) throw new Error(data?.error || "LOG 讀取失敗。");
+                sampleTaskLogs = Array.isArray(data.logs) ? data.logs : [];
+                sampleTaskLogIndex = Math.max(0, sampleTaskLogs.length - 1);
+            } catch (error) {
+                sampleTaskLogs = [];
+                sampleTaskLogIndex = 0;
+                if (sampleTaskLogOutput) sampleTaskLogOutput.textContent = error?.message || "LOG 讀取失敗。";
+                return;
+            }
+            renderSampleTaskLog();
+        }
+
+        function renderSampleScheduledTasks() {
+            if (!sampleTaskList) return;
+            const tasks = sampleScheduledTasks.map(normalizeSampleTask).filter((task) => task.id);
+            if (sampleTaskCount) sampleTaskCount.innerHTML = `<i class="fa-solid fa-list-check"></i> ${tasks.length} 個任務`;
+            if (!tasks.some((task) => task.id === selectedSampleTaskId)) {
+                selectedSampleTaskId = tasks[0]?.id || "";
+            }
+            if (!tasks.length) {
+                sampleTaskList.innerHTML = `<div class="note">尚未建立定期任務。</div>`;
+                sampleTaskLogs = [];
+                sampleTaskLogIndex = 0;
+                renderSampleTaskLog();
+                return;
+            }
+            sampleTaskList.innerHTML = tasks.map((task) => {
+                const status = sampleTaskStatus(task);
+                const result = task.last_error || task.last_result || "";
+                return `
+                    <article class="sample-task-card ${task.id === selectedSampleTaskId ? "is-selected" : ""}" data-sample-task-select="${escapeHtml(task.id)}">
+                        <div class="sample-task-main">
+                            <div class="sample-task-title">
+                                <span>${escapeHtml(task.name || task.id)}</span>
+                                <span class="status-pill ${status.className}"><i class="fa-solid ${status.icon}"></i> ${escapeHtml(status.text)}</span>
+                            </div>
+                            <div class="sample-task-meta">
+                                ${escapeHtml(task.id)} · ${escapeHtml(sampleTaskActionText(task.action))} · 每 ${task.interval_minutes} 分鐘 · 上次：${escapeHtml(sampleDisplayTime(task.last_run_at))} · 下次：${escapeHtml(task.enabled === false ? "未排程" : sampleDisplayTime(task.next_run_at))}
+                            </div>
+                            ${result ? `<div class="sample-task-result">${escapeHtml(result)}</div>` : ""}
+                        </div>
+                        <div class="sample-task-actions">
+                            <button type="button" data-sample-task-run="${escapeHtml(task.id)}"><i class="fa-solid fa-play"></i> 執行</button>
+                            <button type="button" data-sample-task-toggle="${escapeHtml(task.id)}"><i class="fa-solid ${task.enabled === false ? "fa-toggle-off" : "fa-toggle-on"}"></i> ${task.enabled === false ? "啟用" : "停用"}</button>
+                            <button type="button" data-sample-task-edit="${escapeHtml(task.id)}"><i class="fa-solid fa-pen"></i> 編輯</button>
+                            <button type="button" data-sample-task-delete="${escapeHtml(task.id)}"><i class="fa-solid fa-trash"></i> 刪除</button>
+                        </div>
+                    </article>
+                `;
+            }).join("");
+        }
+
+        async function loadSampleScheduledTasks() {
+            try {
+                const data = await sampleApi("/api/sample-r/scheduled-tasks", { method: "GET", cache: "no-store", timeoutMs: 6000 });
+                if (!data?.success) throw new Error(data?.error || "定期任務讀取失敗。");
+                sampleScheduledTasks = Array.isArray(data.scheduled_tasks) ? data.scheduled_tasks : [];
+            } catch (error) {
+                sampleScheduledTasks = [];
+                if (sampleTaskList) sampleTaskList.innerHTML = `<div class="note">${escapeHtml(error?.message || "定期任務讀取失敗。")}</div>`;
+                renderSampleTaskLog();
+                return;
+            }
+            renderSampleScheduledTasks();
+            await loadSampleTaskLogs();
+        }
+
+        function defaultSampleTaskID(name) {
+            const base = String(name || "sample_task").trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "_").replace(/^_+|_+$/g, "");
+            return base || `sample_task_${Date.now()}`;
+        }
+
+        function openSampleTaskDialog(task = null) {
+            const normalized = task ? normalizeSampleTask(task) : null;
+            editingSampleTaskId = normalized?.id || "";
+            if (sampleTaskDialogTitle) sampleTaskDialogTitle.textContent = editingSampleTaskId ? "編輯定期任務" : "新增定期任務";
+            if (sampleTaskNameInput) sampleTaskNameInput.value = normalized?.name || "";
+            if (sampleTaskIdInput) {
+                sampleTaskIdInput.value = normalized?.id || "";
+                sampleTaskIdInput.disabled = Boolean(editingSampleTaskId);
+            }
+            if (sampleTaskIntervalInput) sampleTaskIntervalInput.value = Number(normalized?.interval_minutes || 60);
+            if (sampleTaskActionInput) sampleTaskActionInput.value = normalized?.action || "job";
+            if (sampleTaskEnabledInput) sampleTaskEnabledInput.checked = normalized?.enabled !== false;
+            if (sampleTaskPayloadInput) sampleTaskPayloadInput.value = JSON.stringify(normalized?.payload || { message: "sample-r scheduled background job" }, null, 2);
+            sampleTaskDialog?.showModal();
+            sampleTaskNameInput?.focus();
+        }
+
+        async function saveSampleTaskList(tasks) {
+            const data = await sampleApi("/api/sample-r/scheduled-tasks", {
+                method: "PUT",
+                body: JSON.stringify({ scheduled_tasks: tasks })
+            });
+            if (!data?.success) throw new Error(data?.error || "定期任務儲存失敗。");
+            sampleScheduledTasks = Array.isArray(data.scheduled_tasks) ? data.scheduled_tasks : tasks;
+            renderSampleScheduledTasks();
+            return data;
+        }
+
+        async function saveSampleTaskFromDialog() {
+            let payload = {};
+            const payloadText = String(sampleTaskPayloadInput?.value || "").trim();
+            if (payloadText) payload = JSON.parse(payloadText);
+            const name = String(sampleTaskNameInput?.value || "").trim();
+            const id = editingSampleTaskId || String(sampleTaskIdInput?.value || "").trim() || defaultSampleTaskID(name);
+            const existing = sampleScheduledTasks.find((task) => String(task.id || "") === editingSampleTaskId);
+            const now = new Date().toISOString();
+            const task = {
+                ...existing,
+                id,
+                name: name || "未命名定期任務",
+                enabled: Boolean(sampleTaskEnabledInput?.checked),
+                interval_minutes: Math.max(1, Math.min(1440, Number(sampleTaskIntervalInput?.value || 60) || 60)),
+                action: String(sampleTaskActionInput?.value || "job"),
+                payload,
+                created_at: existing?.created_at || now,
+                updated_at: now
+            };
+            const nextTasks = sampleScheduledTasks.filter((item) => String(item.id || "") !== editingSampleTaskId && String(item.id || "") !== id);
+            nextTasks.push(task);
+            selectedSampleTaskId = id;
+            await saveSampleTaskList(nextTasks);
+            sampleTaskDialog?.close();
+        }
+
+        async function setSampleTaskEnabled(id, enabled) {
+            const now = new Date().toISOString();
+            selectedSampleTaskId = id;
+            const tasks = sampleScheduledTasks.map((task) => {
+                if (String(task.id || "") !== String(id || "")) return task;
+                return {
+                    ...task,
+                    enabled,
+                    next_run_at: enabled ? "" : "",
+                    running_until: enabled ? task.running_until || "" : "",
+                    run_token: enabled ? task.run_token || "" : "",
+                    last_started_at: enabled ? task.last_started_at || "" : "",
+                    updated_at: now
+                };
+            });
+            await saveSampleTaskList(tasks);
+            await loadSampleTaskLogs();
+        }
+
+        async function runSampleTask(id) {
+            const data = await sampleApi(`/api/sample-r/scheduled-tasks/${encodeURIComponent(id)}/run`, {
+                method: "POST",
+                body: "{}",
+                timeoutMs: 9000
+            });
+            if (!data?.success) throw new Error(data?.error || "定期任務執行失敗。");
+            sampleScheduledTasks = Array.isArray(data.scheduled_tasks) ? data.scheduled_tasks : sampleScheduledTasks;
+            selectedSampleTaskId = id;
+            renderSampleScheduledTasks();
+            await loadSampleScheduledTasks();
+            await loadSampleTaskLogs();
+        }
+
+        async function deleteSampleTask(id) {
+            const data = await sampleApi(`/api/sample-r/scheduled-tasks/${encodeURIComponent(id)}`, { method: "DELETE" });
+            if (!data?.success) throw new Error(data?.error || "定期任務刪除失敗。");
+            sampleScheduledTasks = Array.isArray(data.scheduled_tasks) ? data.scheduled_tasks : sampleScheduledTasks.filter((task) => String(task.id || "") !== String(id || ""));
+            if (selectedSampleTaskId === id) selectedSampleTaskId = "";
+            renderSampleScheduledTasks();
+            await loadSampleTaskLogs();
+        }
+
+        function readJSONBody() {
+            const text = document.getElementById("jsonBody").value.trim();
+            if (!text) return {};
+            return JSON.parse(text);
+        }
+
+        async function callPlugin(title, path, options = {}) {
+            setBusy(true);
+            output.textContent = `${title}\n\n呼叫中...`;
+            try {
+                const command = samplePluginCommandFromPath(path);
+                const data = command
+                    ? await samplePluginControl(command, options)
+                    : await sampleApi(path, options);
+                printResult(title, data);
+                return data;
+            } catch (error) {
+                output.textContent = `${title}\n\n${error?.message || error}`;
+                return null;
+            } finally {
+                setBusy(false);
+            }
+        }
+
+        function compactJSON(value, maxLength = 12000) {
+            const text = JSON.stringify(value, null, 2);
+            if (text.length <= maxLength) return text;
+            return `${text.slice(0, maxLength)}\n...已截斷 ${text.length - maxLength} 字元`;
+        }
+
+        function compactText(value, maxLength = 12000) {
+            const text = String(value || "");
+            if (text.length <= maxLength) return text;
+            return `${text.slice(0, maxLength)}\n...已截斷 ${text.length - maxLength} 字元`;
+        }
+
+        function sampleMainAPIPath(path) {
+            const normalized = String(path || "").startsWith("/") ? String(path || "") : `/${path || ""}`;
+            const match = String(window.location.pathname || "").match(/^\/pass\/[^/]+\/\d+(?=\/)/);
+            return match ? `${match[0]}${normalized}` : normalized;
+        }
+
+        function setSampleMsgStatus(type, text, icon = "fa-circle-info") {
+            if (!sampleMsgStatus) return;
+            sampleMsgStatus.className = `status-pill ${type || ""}`.trim();
+            sampleMsgStatus.innerHTML = `<i class="fa-solid ${icon}"></i> ${escapeHtml(text)}`;
+        }
+
+        function readSampleMsgPayload() {
+            const text = String(sampleMsgPayload?.value || "").trim();
+            if (!text) return {};
+            const payload = JSON.parse(text);
+            if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+                throw new Error("Payload 必須是 JSON object。");
+            }
+            return payload;
+        }
+
+        function sampleMsgRequestBody() {
+            const topic = String(sampleMsgTopic?.value || "").trim();
+            if (!topic) throw new Error("Topic 不可空白。");
+            return {
+                topic,
+                event: String(sampleMsgEvent?.value || "message").trim() || "message",
+                payload: readSampleMsgPayload()
+            };
+        }
+
+        function appendSampleMsgLiveEvent(kind, eventName, payload) {
+            const seq = Number(payload?.seq || 0);
+            if (Number.isFinite(seq) && seq > sampleMsgLastEventID) {
+                sampleMsgLastEventID = seq;
+            }
+            sampleMsgLiveEvents.unshift({
+                kind,
+                event: eventName || "message",
+                received_at: new Date().toISOString(),
+                payload
+            });
+            sampleMsgLiveEvents = sampleMsgLiveEvents.slice(0, 50);
+            renderSampleMsgLog();
+        }
+
+        function renderSampleMsgLog() {
+            if (!sampleMsgLogOutput) return;
+            const lines = [];
+            lines.push("Browser SSE：");
+            if (!sampleMsgLiveEvents.length) {
+                lines.push("  尚未接收。");
+            } else {
+                sampleMsgLiveEvents.slice(0, 20).forEach((entry, index) => {
+                    lines.push(`  [${index + 1}] ${entry.event} · ${sampleDisplayTime(entry.received_at)}`);
+                    lines.push(compactJSON(entry.payload || {}, 4000).split("\n").map((line) => `      ${line}`).join("\n"));
+                });
+            }
+            lines.push("", "Plugin Webhook 收件紀錄：");
+            if (!sampleMsgWebhookEvents.length) {
+                lines.push("  尚未接收。");
+            } else {
+                sampleMsgWebhookEvents.slice(0, 20).forEach((entry, index) => {
+                    lines.push(`  [${index + 1}] seq=${entry.seq || "-"} · ${entry.topic || "-"} · ${entry.event || "message"} · source=${entry.source || "-"}`);
+                    lines.push(`      received_at=${sampleDisplayTime(entry.received_at)}`);
+                    lines.push(compactJSON(entry.payload || {}, 4000).split("\n").map((line) => `      ${line}`).join("\n"));
+                });
+            }
+            sampleMsgLogOutput.textContent = lines.join("\n");
+        }
+
+        async function loadSampleMsgEvents() {
+            try {
+                const data = await sampleApi("/api/sample-r/msg/events", { method: "GET", cache: "no-store", timeoutMs: 6000 });
+                if (!data?.success) throw new Error(data?.error || "訊息紀錄讀取失敗。");
+                sampleMsgWebhookEvents = Array.isArray(data.events) ? data.events : [];
+                renderSampleMsgLog();
+            } catch (error) {
+                if (sampleMsgLogOutput) sampleMsgLogOutput.textContent = error?.message || "訊息紀錄讀取失敗。";
+            }
+        }
+
+        async function clearSampleMsgWebhookEvents() {
+            const data = await sampleApi("/api/sample-r/msg/events", { method: "DELETE", timeoutMs: 6000 });
+            if (!data?.success) throw new Error(data?.error || "Webhook 紀錄清空失敗。");
+            sampleMsgWebhookEvents = [];
+            renderSampleMsgLog();
+        }
+
+        async function publishSampleMsgFromPlugin() {
+            const body = sampleMsgRequestBody();
+            const data = await sampleApi("/api/sample-r/msg/publish", {
+                method: "POST",
+                body: JSON.stringify(body),
+                timeoutMs: 9000
+            });
+            if (!data?.success) throw new Error(data?.error || "Plugin 發布失敗。");
+            appendSampleMsgLiveEvent("publish", "plugin.publish.accepted", data.published || data);
+            await loadSampleMsgEvents();
+        }
+
+        async function publishSampleMsgFromBrowser() {
+            const body = { ...sampleMsgRequestBody(), source: "sample-browser" };
+            const data = await appFetchJSON(sampleMainAPIPath("/api/msg/publish"), {
+                method: "POST",
+                body: JSON.stringify(body),
+                timeoutMs: 9000
+            });
+            if (!data?.success) throw new Error(data?.error || "Browser 發布失敗。");
+            appendSampleMsgLiveEvent("publish", "browser.publish.accepted", data);
+            await loadSampleMsgEvents();
+        }
+
+        function sampleMsgSubscribePath() {
+            const topic = String(sampleMsgTopic?.value || "*").trim() || "*";
+            const params = new URLSearchParams({ topics: topic });
+            if (sampleMsgLastEventID > 0) params.set("last_event_id", String(sampleMsgLastEventID));
+            return sampleMainAPIPath(`/api/msg/subscribe?${params.toString()}`);
+        }
+
+        function dispatchSampleSSEChunk(chunk) {
+            const lines = String(chunk || "").split("\n");
+            let eventName = "message";
+            let eventID = "";
+            const dataLines = [];
+            lines.forEach((line) => {
+                if (line.startsWith("id:")) eventID = line.slice(3).trim();
+                if (line.startsWith("event:")) eventName = line.slice(6).trim() || "message";
+                if (line.startsWith("data:")) dataLines.push(line.slice(5).trimStart());
+            });
+            if (eventID) {
+                const id = Number(eventID);
+                if (Number.isFinite(id) && id > sampleMsgLastEventID) sampleMsgLastEventID = id;
+            }
+            const rawData = dataLines.join("\n");
+            let payload = {};
+            if (rawData) {
+                try {
+                    payload = JSON.parse(rawData);
+                } catch (error) {
+                    payload = { raw: rawData };
+                }
+            }
+            appendSampleMsgLiveEvent("sse", eventName, payload);
+            window.setTimeout(loadSampleMsgEvents, 250);
+        }
+
+        async function connectSampleMsgStream() {
+            disconnectSampleMsgStream();
+            const url = sampleMsgSubscribePath();
+            const controller = new AbortController();
+            sampleMsgAbortController = controller;
+            setSampleMsgStatus("is-starting", "連線中", "fa-circle-notch fa-spin");
+            try {
+                const response = await fetch(url, withSampleAuthHeaders({
+                    method: "GET",
+                    cache: "no-store",
+                    headers: { "Accept": "text/event-stream" },
+                    signal: controller.signal
+                }));
+                if (!response.ok || !response.body) {
+                    let detail = "";
+                    try {
+                        detail = await response.text();
+                    } catch {
+                        detail = "";
+                    }
+                    throw new Error(compactText(JSON.stringify({
+                        status: response.status,
+                        status_text: response.statusText,
+                        content_type: response.headers.get("content-type") || "",
+                        body: detail || ""
+                    }, null, 2), 3000));
+                }
+                setSampleMsgStatus("is-ready", "已訂閱", "fa-satellite-dish");
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder("utf-8");
+                let buffer = "";
+                let chunkCount = 0;
+                while (sampleMsgAbortController === controller) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    chunkCount += 1;
+                    buffer += decoder.decode(value, { stream: true }).replaceAll("\r\n", "\n");
+                    while (buffer.includes("\n\n")) {
+                        const index = buffer.indexOf("\n\n");
+                        const chunk = buffer.slice(0, index);
+                        buffer = buffer.slice(index + 2);
+                        if (chunk.trim()) dispatchSampleSSEChunk(chunk);
+                    }
+                }
+                if (buffer.trim()) {
+                    dispatchSampleSSEChunk(buffer);
+                    buffer = "";
+                }
+                if (sampleMsgAbortController === controller) {
+                    setSampleMsgStatus("is-error", "連線中斷", "fa-triangle-exclamation");
+                    sampleMsgAbortController = null;
+                    appendSampleMsgLiveEvent("error", "subscribe.closed", {
+                        url,
+                        status: response.status,
+                        content_type: response.headers.get("content-type") || "",
+                        chunks: chunkCount,
+                        message: chunkCount > 0
+                            ? "SSE stream 已結束。若不是手動停止，請檢查主服務或 proxy 是否中斷長連線。"
+                            : "SSE stream 開啟後沒有收到任何資料就結束。請檢查 /api/msg/subscribe 是否被主服務、proxy 或認證流程關閉。"
+                    });
+                }
+            } catch (error) {
+                if (controller.signal.aborted) return;
+                sampleMsgAbortController = null;
+                setSampleMsgStatus("is-error", "連線失敗", "fa-triangle-exclamation");
+                appendSampleMsgLiveEvent("error", "subscribe.error", {
+                    url,
+                    error: error?.message || String(error),
+                    auth_header_available: Boolean(Object.keys(sampleAuthHeadersFromCookie()).length),
+                    cookie_names: String(document.cookie || "")
+                        .split(";")
+                        .map((part) => part.trim().split("=")[0])
+                        .filter(Boolean)
+                });
+            }
+        }
+
+        function disconnectSampleMsgStream() {
+            if (sampleMsgAbortController) {
+                sampleMsgAbortController.abort();
+                sampleMsgAbortController = null;
+            }
+            setSampleMsgStatus("is-checking", "未連線", "fa-circle-info");
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? "")
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+        }
+
+        function renderMarkdown(value) {
+            const raw = String(value || "");
+            if (!raw.trim()) return "";
+            try {
+                if (window.marked) {
+                    window.marked.setOptions({
+                        gfm: true,
+                        breaks: true,
+                        headerIds: false,
+                        mangle: false
+                    });
+                    const html = window.marked.parse(raw);
+                    return window.DOMPurify ? window.DOMPurify.sanitize(html) : html;
+                }
+            } catch (error) {
+                // Markdown renderer 發生例外時退回純文字，避免阻斷串流回應。
+            }
+            return escapeHtml(raw).replaceAll("\n", "<br>");
+        }
+
+        function renderMathIn(container) {
+            if (!container || typeof window.renderMathInElement !== "function") return;
+            try {
+                window.renderMathInElement(container, {
+                    delimiters: [
+                        { left: "$$", right: "$$", display: true },
+                        { left: "\\[", right: "\\]", display: true },
+                        { left: "$", right: "$", display: false },
+                        { left: "\\(", right: "\\)", display: false }
+                    ],
+                    throwOnError: false
+                });
+            } catch (error) {
+                // KaTeX render 失敗時保留原始 Markdown 內容。
+            }
+        }
+
+        function setAssistantMarkdown(element, content) {
+            if (!element) return;
+            element.innerHTML = `<div class="markdown-body">${renderMarkdown(content)}</div>`;
+            renderMathIn(element);
+        }
+
+        function scheduleAssistantRender(element, state, force = false) {
+            if (!element || !state) return;
+            const renderNow = () => {
+                state.renderQueued = false;
+                element.classList.remove("typing");
+                setAssistantMarkdown(element, state.content || "");
+                sampleChatLog.scrollTop = sampleChatLog.scrollHeight;
+            };
+            if (force) {
+                if (state.renderTimer) {
+                    window.clearTimeout(state.renderTimer);
+                    state.renderTimer = 0;
+                }
+                renderNow();
+                return;
+            }
+            if (state.renderQueued) return;
+            state.renderQueued = true;
+            state.renderTimer = window.setTimeout(renderNow, 80);
+        }
+
+        function appendChatMessage(role, content = "") {
+            if (!sampleChatLog) return null;
+            const message = document.createElement("div");
+            message.className = `chat-message ${role}`;
+            if (role === "assistant") {
+                setAssistantMarkdown(message, content);
+            } else {
+                message.textContent = content;
+            }
+            sampleChatLog.appendChild(message);
+            sampleChatLog.scrollTop = sampleChatLog.scrollHeight;
+            return message;
+        }
+
+        function resetSampleChat() {
+            if (sampleChatLog) {
+                sampleChatLog.innerHTML = "";
+                appendChatMessage("assistant", "請輸入 SampleR Plugin 開發問題。送出時會先透過 SampleR Plugin API 取得目前狀態、設定、資料與 MCP 協定及工具資訊，再導入專屬 SKILL.md 作為 SYSTEM PROMPT。");
+            }
+            if (sampleChatInput) sampleChatInput.value = "";
+            sampleChatHistory = [];
+            sampleChatSessionId = `sample_r_plugin_${Date.now()}`;
+        }
+
+        function parseSSEChunk(chunk) {
+            const lines = chunk.split("\n");
+            let eventName = "message";
+            const dataLines = [];
+            lines.forEach((line) => {
+                if (line.startsWith("event:")) eventName = line.slice(6).trim();
+                if (line.startsWith("data:")) dataLines.push(line.slice(5).trimStart());
+            });
+            const rawData = dataLines.join("\n");
+            let payload = {};
+            if (rawData) {
+                try {
+                    payload = JSON.parse(rawData);
+                } catch (error) {
+                    payload = { text: rawData };
+                }
+            }
+            return { eventName, payload };
+        }
+
+        function sampleSSEText(payload) {
+            if (!payload) return "";
+            const value = payload.delta ?? payload.content ?? payload.text ?? payload.message ?? payload.answer ?? "";
+            return typeof value === "string" ? value : String(value || "");
+        }
+
+        function sampleSSEDoneText(payload, fallback = "") {
+            if (!payload) return fallback;
+            const value = payload.assistant_message?.content
+                ?? payload.final_message?.content
+                ?? payload.content
+                ?? payload.text
+                ?? payload.message
+                ?? payload.answer
+                ?? fallback;
+            return typeof value === "string" ? value : String(value || "");
+        }
+
+        function consumeSampleChatSSEChunk(chunk, assistantMessage, state) {
+            if (!chunk || !chunk.trim()) return;
+            const { eventName, payload } = parseSSEChunk(chunk);
+            const normalizedEvent = String(eventName || "message").toLowerCase();
+            if (normalizedEvent === "error") {
+                throw new Error(payload.error || payload.message || "CHAT 回應失敗。");
+            }
+            if (normalizedEvent === "done" || normalizedEvent === "complete" || normalizedEvent === "completed") {
+                state.content = sampleSSEDoneText(payload, state.content);
+                state.done = true;
+            } else {
+                const text = sampleSSEText(payload);
+                if (text) state.content += text;
+            }
+            if (assistantMessage && state.content.trim()) {
+                scheduleAssistantRender(assistantMessage, state, state.done);
+            }
+        }
+
+        function buildConversationContext(history) {
+            const items = Array.isArray(history) ? history.filter((item) => item?.role && String(item?.content || "").trim()).slice(-12) : [];
+            if (!items.length) return "尚無先前問答。";
+            return compactText(items.map((item, index) => {
+                const role = item.role === "assistant" ? "Assistant" : "User";
+                return `[${index + 1}] ${role}:\n${String(item.content || "").trim()}`;
+            }).join("\n\n"), 16000);
+        }
+
+        async function fetchSampleSkillGuide() {
+            if (sampleSkillGuideCache && Date.now() - sampleSkillGuideCacheAt < 10 * 60 * 1000) {
+                return sampleSkillGuideCache;
+            }
+            const data = await sampleApi("/api/sample-r/skills/guide/content", { method: "GET", cache: "no-store" });
+            if (!data?.success || !data?.content) {
+                throw new Error(data?.error || "無法讀取 SampleR Plugin CHAT Guide。");
+            }
+            sampleSkillGuideCache = data.content;
+            sampleSkillGuideCacheAt = Date.now();
+            return data.content;
+        }
+
+        function summarizeSampleLiveContext(raw) {
+            const plugin = raw.pluginStatus?.plugin || {};
+            const registration = raw.registration?.plugin || {};
+            const config = raw.config?.config || {};
+            const items = Array.isArray(raw.items?.items) ? raw.items.items : [];
+            const tasks = Array.isArray(raw.scheduledTasks?.scheduled_tasks) ? raw.scheduledTasks.scheduled_tasks : [];
+            const skills = Array.isArray(raw.skills?.skills) ? raw.skills.skills : [];
+            const tools = Array.isArray(raw.mcp?.mcp?.tools) ? raw.mcp.mcp.tools : [];
+            return {
+                plugin: {
+                    id: plugin.id || registration.id || "sample-r",
+                    version: plugin.version || registration.version || "",
+                    loaded: Boolean(plugin.loaded),
+                    last_error: plugin.last_error || "",
+                    item_count: plugin.item_count ?? items.length,
+                    job_count: plugin.job_count ?? 0,
+                    scheduled_task_count: plugin.scheduled_task_count ?? tasks.length,
+                    message_count: plugin.message_count ?? 0,
+                    host_auth_available: Boolean(plugin.host_auth?.available)
+                },
+                config: {
+                    version: config.version || "",
+                    message: config.message || "",
+                    features: config.features || {}
+                },
+                items: items.slice(0, 8).map((item) => ({
+                    id: item.id,
+                    name: item.name,
+                    value: item.value
+                })),
+                scheduled_tasks: tasks.slice(0, 8).map((task) => ({
+                    id: task.id,
+                    name: task.name,
+                    enabled: Boolean(task.enabled),
+                    interval_minutes: task.interval_minutes,
+                    action: task.action,
+                    last_result: task.last_result || "",
+                    last_error: task.last_error || ""
+                })),
+                skills: skills.slice(0, 12).map((skill) => ({
+                    id: skill.id,
+                    entry: skill.entry
+                })),
+                mcp_tools: tools.slice(0, 20).map((tool) => ({
+                    name: tool.name,
+                    read_only: Boolean(tool.annotations?.readOnlyHint),
+                    destructive: Boolean(tool.annotations?.destructiveHint),
+                    permission: tool._meta?.["io.agenticservice/permission"] || ""
+                })),
+                errors: Object.fromEntries(Object.entries(raw)
+                    .filter(([, value]) => value?.success === false)
+                    .map(([key, value]) => [key, value.error || "failed"]))
+            };
+        }
+
+        async function fetchSampleLiveContext() {
+            if (sampleLiveContextCache && Date.now() - sampleLiveContextCacheAt < 30 * 1000) {
+                return sampleLiveContextCache;
+            }
+            const calls = [
+                ["pluginStatus", "/api/sample-r/plugin/status", { method: "GET", cache: "no-store" }],
+                ["registration", "/api/sample-r/plugin/registration", { method: "GET", cache: "no-store" }],
+                ["config", "/api/sample-r/config", { method: "GET", cache: "no-store" }],
+                ["items", "/api/sample-r/items", { method: "GET", cache: "no-store" }],
+                ["scheduledTasks", "/api/sample-r/scheduled-tasks", { method: "GET", cache: "no-store" }],
+                ["mcp", "/api/sample-r/mcp", { method: "GET", cache: "no-store" }],
+                ["skills", "/api/sample-r/skills", { method: "GET", cache: "no-store" }]
+            ];
+            const entries = await Promise.all(calls.map(async ([key, path, options]) => {
+                try {
+                    const command = samplePluginCommandFromPath(path);
+                    const data = command
+                        ? await samplePluginControl(command, options)
+                        : await sampleApi(path, options);
+                    return [key, data];
+                } catch (error) {
+                    return [key, { success: false, error: error?.message || String(error) }];
+                }
+            }));
+            const context = Object.fromEntries(entries);
+            const summarized = summarizeSampleLiveContext(context);
+            sampleLiveContextCache = [
+                "SampleR Plugin API 即時上下文：",
+                compactJSON(summarized, 8000),
+                "",
+                "可呼叫方式提醒：",
+                `fetchPlugin("sample-r", "/api/sample-r/...")`,
+                `fetchPluginControl("sample-r", "/load|/status|/unload|/reload")`
+            ].join("\n");
+            sampleLiveContextCacheAt = Date.now();
+            return sampleLiveContextCache;
+        }
+
+        async function buildSampleChatMessage(userMessage, priorHistory) {
+            const liveContext = await fetchSampleLiveContext();
+            return [
+                "未清除前的先前問答上下文：",
+                buildConversationContext(priorHistory),
+                "",
+                liveContext,
+                "",
+                "目前使用者問題：",
+                userMessage
+            ].join("\n");
+        }
+
+        async function sendSampleChatMessage() {
+            const content = String(sampleChatInput?.value || "").trim();
+            if (!content || sampleChatStreaming) return;
+            sampleChatStreaming = true;
+            if (sampleChatSend) sampleChatSend.disabled = true;
+            if (sampleChatInput) sampleChatInput.value = "";
+            const priorHistory = [...sampleChatHistory];
+            sampleChatHistory.push({ role: "user", content });
+            appendChatMessage("user", content);
+            const assistantMessage = appendChatMessage("assistant", "");
+            if (assistantMessage) {
+                assistantMessage.classList.add("typing");
+                assistantMessage.innerHTML = `<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>`;
+            }
+            try {
+                const [systemPrompt, promptMessage] = await Promise.all([
+                    fetchSampleSkillGuide(),
+                    buildSampleChatMessage(content, priorHistory)
+                ]);
+                const response = await fetch("/talk/ask/direct_stream", {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: {
+                        "Accept": "text/event-stream",
+                        "Content-Type": "application/json",
+                        ...(window.AgenticTalkAPI?.authHeaders?.() || {})
+                    },
+                    body: JSON.stringify({
+                        session_id: sampleChatSessionId,
+                        provider_id: "chat",
+                        system: systemPrompt,
+                        message: promptMessage,
+                        thinking_mode: "light",
+                        permission_profile: "default",
+                        locale_mode: "fixed",
+                        locale: "zh-TW",
+                        lang: "zh-TW",
+                        language: "zh-TW",
+                        allow_shell: false,
+                        plan_execute: false,
+                        use_memory: false,
+                        debug: false,
+                        step_reasoning_stream: false
+                    })
+                });
+                if (!response.ok || !response.body) {
+                    let errorText = "";
+                    try {
+                        errorText = await response.text();
+                    } catch (_) {
+                        errorText = "";
+                    }
+                    throw new Error(errorText ? `CHAT 串流呼叫失敗：${errorText.slice(0, 300)}` : `CHAT 串流呼叫失敗：HTTP ${response.status}`);
+                }
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder("utf-8");
+                let buffer = "";
+                const streamState = { content: "", done: false, renderQueued: false, renderTimer: 0 };
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, { stream: true }).replaceAll("\r\n", "\n");
+                    while (buffer.includes("\n\n")) {
+                        const splitIndex = buffer.indexOf("\n\n");
+                        const chunk = buffer.slice(0, splitIndex);
+                        buffer = buffer.slice(splitIndex + 2);
+                        consumeSampleChatSSEChunk(chunk, assistantMessage, streamState);
+                    }
+                }
+                buffer += decoder.decode().replaceAll("\r\n", "\n");
+                if (buffer.trim()) {
+                    consumeSampleChatSSEChunk(buffer, assistantMessage, streamState);
+                }
+                if (assistantMessage && streamState.content.trim()) {
+                    scheduleAssistantRender(assistantMessage, streamState, true);
+                }
+                if (assistantMessage && !assistantMessage.textContent.trim()) {
+                    assistantMessage.classList.remove("typing");
+                    setAssistantMarkdown(assistantMessage, streamState.content || "已完成。");
+                }
+                if (streamState.content.trim()) {
+                    sampleChatHistory.push({ role: "assistant", content: streamState.content.trim() });
+                }
+            } catch (error) {
+                if (assistantMessage) {
+                    assistantMessage.classList.remove("typing");
+                    assistantMessage.classList.add("error");
+                    assistantMessage.textContent = error?.message || "CHAT 回應失敗。";
+                }
+            } finally {
+                sampleChatStreaming = false;
+                if (sampleChatSend) sampleChatSend.disabled = false;
+            }
+        }
+
+        function updateRuntimeStatus(data) {
+            const plugin = data?.plugin || data?.service?.plugin || data?.sample?.plugin;
+            if (!plugin) return;
+            const loaded = Boolean(plugin?.loaded);
+            runtimeStatus.dataset.fullLoadDone = "true";
+            runtimeStatus.className = `status-pill ${loaded ? "is-ready" : "is-checking"}`;
+            runtimeStatus.innerHTML = loaded
+                ? `<i class="fa-solid fa-circle-check"></i> 已載入`
+                : `<i class="fa-solid fa-circle-info"></i> 未載入`;
+        }
+
+        function setRuntimeStatus(type, text, icon = "") {
+            const iconClass = icon || (type === "is-error" ? "fa-triangle-exclamation" : "fa-circle-info");
+            runtimeStatus.dataset.fullLoadDone = "true";
+            runtimeStatus.className = `status-pill ${type}`;
+            runtimeStatus.innerHTML = `<i class="fa-solid ${iconClass}"></i> ${escapeHtml(text)}`;
+        }
+
+        const handlers = {
+            mcp: () => callPlugin("MCP", "/api/sample-r/mcp"),
+            config: () => callPlugin("Config", "/api/sample-r/config"),
+            items: () => callPlugin("Items", "/api/sample-r/items"),
+            createItem: () => callPlugin("Create Item", "/api/sample-r/items", {
+                method: "POST",
+                body: JSON.stringify(readJSONBody()),
+            }),
+            job: () => callPlugin("Start Job", "/api/sample-r/jobs", {
+                method: "POST",
+                body: JSON.stringify({ message: "sample background job" }),
+            }),
+            echo: () => callPlugin("Echo", "/api/sample-r/echo", {
+                method: "POST",
+                body: JSON.stringify({ message: document.getElementById("echoMessage").value }),
+            }),
+            tool: () => callPlugin("Tool Run", "/api/sample-r/tools/run", {
+                method: "POST",
+                body: JSON.stringify({ tool: "sample.tool", input: readJSONBody() }),
+            }),
+        };
+
+        async function initializeSamplePlugin() {
+            if (typeof window.AgenticTalkAPI?.ensureAuthOrRedirect === "function") {
+                const allowed = window.AgenticTalkAPI.ensureAuthOrRedirect();
+                if (!allowed) {
+                    setRuntimeStatus("is-error", "unauthorized", "fa-triangle-exclamation");
+                    return;
+                }
+            }
+            try {
+                setRuntimeStatus("is-checking", "檢查中", "fa-circle-notch fa-spin");
+                const status = await samplePluginControl("/status", { method: "GET", cache: "no-store", timeoutMs: 6000 });
+                if (status?.success && status?.plugin?.loaded) {
+                    updateRuntimeStatus(status);
+                } else {
+                    setRuntimeStatus("is-starting", "啟動中", "fa-circle-notch fa-spin");
+                    const loaded = await samplePluginControl("/load", { method: "POST", body: "{}", timeoutMs: 9000 });
+                    if (!loaded?.success) {
+                        throw new Error(loaded?.error || "載入失敗");
+                    }
+                    updateRuntimeStatus(loaded);
+                }
+            } catch (error) {
+                setRuntimeStatus("is-error", error?.message || "服務錯誤", "fa-triangle-exclamation");
+            }
+            await loadSampleSkillCards();
+            await loadSampleScheduledTasks();
+            await loadSampleMsgEvents();
+            prewarmSampleChatContext();
+            await callPlugin("Plugin Status", "/api/sample-r/plugin/status", { method: "GET", cache: "no-store", timeoutMs: 6000 });
+        }
+
+        document.querySelectorAll("[data-action]").forEach((button) => {
+            button.addEventListener("click", () => handlers[button.dataset.action]?.());
+        });
+        document.getElementById("clearOutput")?.addEventListener("click", () => {
+            output.textContent = "尚未呼叫 API。";
+        });
+        document.querySelectorAll("[data-sample-tab]").forEach((button) => {
+            button.addEventListener("click", () => activateSampleTab(button.dataset.sampleTab));
+        });
+        sampleSkillList?.addEventListener("click", (event) => {
+            const actionButton = event.target.closest("[data-sample-skill-action]");
+            if (actionButton) {
+                event.stopPropagation();
+                const id = actionButton.dataset.sampleSkillId || "";
+                const card = sampleSkillCards.find((item) => String(item.id || "") === id);
+                if (!card) return;
+                if (actionButton.dataset.sampleSkillAction === "edit") openSampleSkillCardDialog(card);
+                if (actionButton.dataset.sampleSkillAction === "delete") openSampleSkillDeleteDialog(card);
+                return;
+            }
+            const cardNode = event.target.closest("[data-sample-chat-skill]");
+            if (cardNode) applySampleSkillPrompt(cardNode.dataset.sampleChatSkill || "");
+        });
+        sampleSkillList?.addEventListener("keydown", (event) => {
+            if (event.key !== "Enter" && event.key !== " ") return;
+            const cardNode = event.target.closest("[data-sample-chat-skill]");
+            if (!cardNode) return;
+            event.preventDefault();
+            applySampleSkillPrompt(cardNode.dataset.sampleChatSkill || "");
+        });
+        sampleSkillAdd?.addEventListener("click", () => openSampleSkillCardDialog());
+        sampleSkillCardForm?.addEventListener("submit", (event) => {
+            event.preventDefault();
+            saveSampleSkillCard();
+        });
+        sampleSkillDeleteForm?.addEventListener("submit", (event) => {
+            event.preventDefault();
+            deleteSampleSkillCard();
+        });
+        document.querySelectorAll("[data-close-sample-skill-dialog]").forEach((button) => {
+            button.addEventListener("click", () => sampleSkillCardDialog?.close());
+        });
+        document.querySelectorAll("[data-close-sample-skill-delete]").forEach((button) => {
+            button.addEventListener("click", () => sampleSkillDeleteDialog?.close());
+        });
+        sampleTaskAdd?.addEventListener("click", () => openSampleTaskDialog());
+        sampleTaskRefresh?.addEventListener("click", loadSampleScheduledTasks);
+        sampleTaskLogRefresh?.addEventListener("click", loadSampleTaskLogs);
+        sampleTaskLogDate?.addEventListener("change", loadSampleTaskLogs);
+        sampleTaskLogPrev?.addEventListener("click", () => {
+            sampleTaskLogIndex = Math.max(0, sampleTaskLogIndex - 1);
+            renderSampleTaskLog();
+        });
+        sampleTaskLogNext?.addEventListener("click", () => {
+            sampleTaskLogIndex = Math.min(sampleTaskLogs.length - 1, sampleTaskLogIndex + 1);
+            renderSampleTaskLog();
+        });
+        sampleTaskForm?.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            try {
+                await saveSampleTaskFromDialog();
+            } catch (error) {
+                window.alert(error?.message || "定期任務儲存失敗。");
+            }
+        });
+        document.querySelectorAll("[data-close-sample-task-dialog]").forEach((button) => {
+            button.addEventListener("click", () => sampleTaskDialog?.close());
+        });
+        sampleTaskList?.addEventListener("click", async (event) => {
+            const selectID = event.target.closest("[data-sample-task-select]")?.dataset.sampleTaskSelect;
+            const editID = event.target.closest("[data-sample-task-edit]")?.dataset.sampleTaskEdit;
+            const deleteID = event.target.closest("[data-sample-task-delete]")?.dataset.sampleTaskDelete;
+            const toggleID = event.target.closest("[data-sample-task-toggle]")?.dataset.sampleTaskToggle;
+            const runID = event.target.closest("[data-sample-task-run]")?.dataset.sampleTaskRun;
+            try {
+                if (editID) {
+                    openSampleTaskDialog(sampleScheduledTasks.find((task) => String(task.id || "") === editID));
+                } else if (deleteID) {
+                    if (window.confirm("確定要刪除此定期任務？")) await deleteSampleTask(deleteID);
+                } else if (toggleID) {
+                    const task = sampleScheduledTasks.find((item) => String(item.id || "") === toggleID);
+                    await setSampleTaskEnabled(toggleID, task?.enabled === false);
+                } else if (runID) {
+                    await runSampleTask(runID);
+                } else if (selectID) {
+                    selectedSampleTaskId = selectID;
+                    renderSampleScheduledTasks();
+                    await loadSampleTaskLogs();
+                }
+            } catch (error) {
+                window.alert(error?.message || "定期任務操作失敗。");
+            }
+        });
+        sampleChatSend?.addEventListener("click", sendSampleChatMessage);
+        sampleChatInput?.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                event.preventDefault();
+                sendSampleChatMessage();
+            }
+        });
+        sampleChatClear?.addEventListener("click", resetSampleChat);
+        sampleMsgRefresh?.addEventListener("click", loadSampleMsgEvents);
+        sampleMsgConnect?.addEventListener("click", connectSampleMsgStream);
+        sampleMsgDisconnect?.addEventListener("click", disconnectSampleMsgStream);
+        sampleMsgClearLocal?.addEventListener("click", () => {
+            sampleMsgLiveEvents = [];
+            renderSampleMsgLog();
+        });
+        sampleMsgClearPlugin?.addEventListener("click", async () => {
+            try {
+                await clearSampleMsgWebhookEvents();
+            } catch (error) {
+                window.alert(error?.message || "Webhook 紀錄清空失敗。");
+            }
+        });
+        sampleMsgPublishPlugin?.addEventListener("click", async () => {
+            try {
+                await publishSampleMsgFromPlugin();
+            } catch (error) {
+                window.alert(error?.message || "Plugin 發布失敗。");
+            }
+        });
+        sampleMsgPublishBrowser?.addEventListener("click", async () => {
+            try {
+                await publishSampleMsgFromBrowser();
+            } catch (error) {
+                window.alert(error?.message || "Browser 發布失敗。");
+            }
+        });
+        window.addEventListener("beforeunload", disconnectSampleMsgStream);
+
+        if (typeof window.AgenticTalkAPI?.startAuthMonitor === "function") {
+            window.AgenticTalkAPI.startAuthMonitor();
+        }
+
+        let samplePageStarted = false;
+        function startSamplePluginPage() {
+            if (samplePageStarted) return;
+            samplePageStarted = true;
+            initializeSamplePlugin();
+        }
+        window.setTimeout(startSamplePluginPage, 0);
+        document.addEventListener("DOMContentLoaded", startSamplePluginPage, { once: true });
+    </script>
+</body>
+</html>
