@@ -24,6 +24,7 @@ mkdir -p "$STAGE_DIR/plugins" "$STAGE_DIR/website" "$STAGE_DIR/plugins/sample/bi
 cp -R "$ROOT_DIR/plugins/sample" "$STAGE_DIR/plugins/"
 cp -R "$ROOT_DIR/website/sample" "$STAGE_DIR/website/"
 cp "$ROOT_DIR/README.md" "$STAGE_DIR/README.md"
+cp "$ROOT_DIR/MCP.md" "$STAGE_DIR/MCP.md"
 
 rm -rf "$STAGE_DIR/plugins/sample/bin" "$STAGE_DIR/plugins/sample/runtime"
 rm -f "$STAGE_DIR/plugins/sample/config.json" "$STAGE_DIR/plugins/sample/skill/skill-cards.json"

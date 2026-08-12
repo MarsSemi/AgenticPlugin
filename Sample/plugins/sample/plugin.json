@@ -1,9 +1,11 @@
 {
   "id": "sample",
+  "plugin_code": "sample",
   "name": "Sample Plugin",
   "version": "0.1.0",
   "type": "service",
   "auto_start": true,
+  "default_group": "開發工具",
   "website_path": "./website/sample/index.html",
   "ui": {
     "enabled": true,
@@ -32,36 +34,115 @@
   "api_base": "/api/plugin/sample",
   "plugin_api_base": "/api/sample",
   "mcp_url": "http://127.0.0.1:18182/mcp",
-  "routes": ["/api/sample"],
+  "routes": ["/mcp", "/api/sample", "/api/hello", "/api/health", "/api/heatlth"],
   "runtime": {
     "service": "sample-service",
     "addr": "127.0.0.1:18182",
     "listen_addr": "127.0.0.1:18182",
-    "health": "/api/sample/plugin/status",
+    "health": "/api/health",
     "auth": "/api/sample/plugin/auth",
     "load": "/api/sample/plugin/load",
+    "reload": "/api/sample/plugin/reload",
     "unload": "/api/sample/plugin/unload",
     "registration": "/api/sample/plugin/registration",
-    "start_args": ["-config", "plugins/sample/config.json"]
+    "start_args": ["-config", "plugins/sample/config.json"],
+    "preserve_paths": [
+      "config.json",
+      "runtime/",
+      "skill/skill-cards.json"
+    ]
   },
   "invoke": {
     "type": "CallPlugin",
     "api_base": "/api/plugin/sample",
     "plugin_api_base": "/api/sample"
   },
+  "messaging": {
+    "webhook": "/api/sample/msg",
+    "topics": ["sample.notice", "system.notice"]
+  },
+  "permission_settings": {
+    "title": "Sample MCP 權限",
+    "description": "示範 Account Manager 如何保存 MCP 讀取、寫入與刪除能力偏好；實際呼叫仍由主系統帳號權限、MCP key scopes、allow_write、allow_delete 與工具白名單共同限制。",
+    "items": [
+      {
+        "key": "mcp_read",
+        "label": "MCP 讀取",
+        "description": "允許讀取 Sample 狀態、項目與背景工作結果。",
+        "type": "boolean",
+        "default": false
+      },
+      {
+        "key": "mcp_write",
+        "label": "MCP 寫入",
+        "description": "允許建立或更新 Sample 項目，以及啟動背景工作。",
+        "type": "boolean",
+        "default": false
+      },
+      {
+        "key": "mcp_delete",
+        "label": "MCP 刪除",
+        "description": "允許刪除 Sample 項目。",
+        "type": "boolean",
+        "default": false
+      }
+    ]
+  },
+  "config_settings": {
+    "title": "Sample Plugin 設定",
+    "description": "示範新版主系統以參數表單修改 Plugin 基本設定，並保留未顯示的完整 JSON。",
+    "mode": "json",
+    "reload_after_save": true,
+    "basic_parameters": [
+      {
+        "key": "title",
+        "label": "顯示名稱",
+        "type": "string",
+        "default": "Sample Plugin",
+        "help": "主頁主要卡片顯示名稱。"
+      },
+      {
+        "key": "default_group",
+        "label": "預設群組",
+        "type": "string",
+        "default": "開發工具",
+        "help": "使用者尚未自行編排主頁時採用的建議群組。"
+      },
+      {
+        "key": "message",
+        "label": "範例訊息",
+        "type": "string",
+        "default": "Hello from Sample Plugin",
+        "help": "Sample 頁面與 API 使用的示範訊息。"
+      }
+    ]
+  },
   "enabled": true,
+  "business_capabilities": [
+    "plugin-development-reference"
+  ],
+  "technical_capabilities": [
+    "standard-mcp",
+    "host-auth",
+    "message-hub",
+    "runtime-config",
+    "background-job"
+  ],
   "capabilities": [
     "lifecycle",
     "registration",
     "host-auth",
     "mcp",
+    "standard-mcp",
     "config",
     "crud",
     "skill-guide",
     "chat-guide",
     "stream",
     "background-job",
+    "scheduled-task",
     "file-payload",
+    "messaging",
     "tool-call"
   ]
 }

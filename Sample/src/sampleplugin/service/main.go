@@ -1,13 +1,18 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
+	"time"
 
 	"agentic-plugin/sample/src/sampleplugin"
 )
@@ -26,8 +31,35 @@ func main() {
 
 	sampleplugin.SamplePluginConfigPath = *configPath
 	api := &sampleplugin.HttpAPI_Plugin{}
+	server := &http.Server{
+		Addr:    *addr,
+		Handler: api,
+	}
+	shutdown := func() {
+		server.SetKeepAlivesEnabled(false)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		if err := server.Shutdown(ctx); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Printf("sample-service shutdown failed: %v", err)
+			if closeErr := server.Close(); closeErr != nil && !errors.Is(closeErr, http.ErrServerClosed) {
+				log.Printf("sample-service close failed: %v", closeErr)
+			}
+		}
+	}
+	api.Shutdown = shutdown
+	if err := api.Load(); err != nil {
+		log.Printf("sample-service initial load failed: %v", err)
+	}
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-stop
+		shutdown()
+	}()
+
 	log.Printf("sample-service listening on %s, root=%s, config=%s", *addr, pluginRoot, *configPath)
-	if err := http.ListenAndServe(*addr, api); err != nil {
+	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal(err)
 	}
 }

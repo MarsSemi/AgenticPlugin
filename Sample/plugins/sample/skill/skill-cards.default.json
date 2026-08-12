@@ -17,16 +17,16 @@
     {
       "id": "mcp",
       "title": "MCP 能力盤點",
-      "description": "整理工具、資源與 metadata 用法。",
+      "description": "整理標準協定、工具與權限邊界。",
       "icon": "fa-plug-circle-bolt",
-      "prompt": "請根據目前 Sample Plugin 的 MCP metadata，說明它提供哪些工具、資源或能力，以及主服務可以如何透過 MCP 操作它。"
+      "prompt": "請根據目前 Sample Plugin 的 MCP 協定與 tools/list 定義，說明它提供哪些工具、讀寫刪除邊界，以及主服務可以如何透過 MCP 操作它。"
     },
     {
       "id": "developer",
       "title": "開發移植檢查",
       "description": "檢查自定義 plugin 要替換的檔案與設定。",
       "icon": "fa-code",
-      "prompt": "請把 Sample Plugin 當成開發模板，列出開發自定義 plugin 時需要調整的檔案、plugin.json 設定、API endpoint、MCP metadata 與部署注意事項。"
+      "prompt": "請把 Sample Plugin 當成開發模板，列出開發自定義 plugin 時需要調整的檔案、plugin.json 設定、API endpoint、標準 MCP Server 與部署注意事項。"
     }
   ]
 }

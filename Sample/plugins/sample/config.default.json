@@ -1,19 +1,36 @@
 {
   "version": "0.1.0",
+  "title": "Sample Plugin",
+  "default_group": "開發工具",
   "message": "Hello from Sample Plugin",
   "features": {
     "echo": true,
     "items": true,
     "stream": true,
     "jobs": true,
+    "scheduled_tasks": true,
     "files": true,
-    "tools": true
+    "messaging": true,
+    "tools": true,
+    "mcp": true
   },
   "items": [
     {
       "id": "demo-1",
       "name": "Demo Item",
       "value": "This record is loaded from config.default.json"
+    }
+  ],
+  "scheduled_tasks": [
+    {
+      "id": "sample_hourly_job",
+      "name": "Sample 每小時背景任務",
+      "enabled": false,
+      "interval_minutes": 60,
+      "action": "job",
+      "payload": {
+        "message": "sample scheduled background job"
+      }
     }
   ]
 }

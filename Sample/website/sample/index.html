@@ -81,6 +81,12 @@
             color: #ffffff;
         }
 
+        button.danger {
+            border-color: var(--danger);
+            background: var(--danger);
+            color: #ffffff;
+        }
+
         button:disabled {
             cursor: not-allowed;
             opacity: 0.58;
@@ -174,7 +180,8 @@
         }
 
         input,
-        textarea {
+        textarea,
+        select {
             width: 100%;
             border: 1px solid #cbd5e1;
             border-radius: 8px;
@@ -188,6 +195,19 @@
         textarea {
             min-height: 88px;
             resize: vertical;
+        }
+
+        .field-inline {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #334155;
+            font-size: 13px;
+            font-weight: 900;
+        }
+
+        .field-inline input[type="checkbox"] {
+            width: auto;
         }
 
         .output {
@@ -242,6 +262,170 @@
         .sample-head-actions {
             display: inline-flex;
             align-items: center;
+            gap: 8px;
+        }
+
+        .sample-task-workspace {
+            display: grid;
+            grid-template-columns: 360px minmax(0, 1fr);
+            gap: 16px;
+            align-items: stretch;
+        }
+
+        .sample-msg-workspace {
+            display: grid;
+            grid-template-columns: 360px minmax(0, 1fr);
+            gap: 16px;
+            align-items: start;
+        }
+
+        .sample-task-pane,
+        .sample-task-log-pane,
+        .sample-msg-pane,
+        .sample-msg-log-pane {
+            min-width: 0;
+            border: 1px solid var(--line);
+            background: #ffffff;
+        }
+
+        .sample-task-section-head {
+            min-height: 46px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--line);
+            font-weight: 900;
+        }
+
+        .sample-task-log-tools {
+            display: inline-flex;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .sample-task-log-date {
+            width: 150px;
+            min-height: 36px;
+            padding: 7px 10px;
+            font-weight: 800;
+        }
+
+        .sample-task-log-pager {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px;
+            border: 1px solid #d7e1ee;
+            border-radius: 8px;
+            background: #f8fafc;
+        }
+
+        .sample-task-log-pager button {
+            min-height: 28px;
+            width: 30px;
+            padding: 0;
+        }
+
+        .sample-task-log-position {
+            min-width: 56px;
+            text-align: center;
+            color: #334155;
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .sample-task-list {
+            display: grid;
+            max-height: 560px;
+            overflow: auto;
+            gap: 10px;
+            padding: 12px;
+        }
+
+        .sample-task-card {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 12px;
+            align-items: start;
+            padding: 14px;
+            border: 1px solid #cbd5e1;
+            background: #ffffff;
+            cursor: pointer;
+        }
+
+        .sample-task-card.is-selected {
+            border-color: var(--brand);
+            background: #f4f9ff;
+        }
+
+        .sample-task-main {
+            min-width: 0;
+            display: grid;
+            gap: 6px;
+        }
+
+        .sample-task-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 15px;
+            font-weight: 900;
+        }
+
+        .sample-task-meta,
+        .sample-task-result {
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1.5;
+            overflow-wrap: anywhere;
+        }
+
+        .sample-task-actions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-start;
+            gap: 6px;
+        }
+
+        .sample-task-actions button {
+            min-height: 32px;
+            padding: 0 10px;
+        }
+
+        .sample-task-log-output {
+            min-height: 560px;
+            max-height: 560px;
+            overflow: auto;
+            margin: 0;
+            padding: 14px;
+            background: #f8fafc;
+            color: #26364d;
+            font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .sample-msg-log-output {
+            min-height: 520px;
+            max-height: 520px;
+            overflow: auto;
+            margin: 0;
+            padding: 14px;
+            background: #f8fafc;
+            color: #26364d;
+            font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .sample-msg-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
             gap: 8px;
         }
 
@@ -531,6 +715,18 @@
             color: var(--danger);
         }
 
+        button.status-pill {
+            min-height: auto;
+            padding: 5px 10px;
+            border: 0;
+            border-radius: 999px;
+            box-shadow: none;
+        }
+
+        button.status-pill:hover {
+            filter: brightness(0.96);
+        }
+
         dialog {
             width: min(560px, calc(100% - 32px));
             border: 1px solid var(--line);
@@ -577,8 +773,28 @@
                 grid-template-columns: 1fr;
             }
 
+            .sample-task-workspace {
+                grid-template-columns: 1fr;
+            }
+
+            .sample-msg-workspace {
+                grid-template-columns: 1fr;
+            }
+
             .actions {
                 grid-template-columns: 1fr;
+            }
+
+            .sample-msg-actions {
+                grid-template-columns: 1fr;
+            }
+
+            .sample-task-card {
+                grid-template-columns: 1fr;
+            }
+
+            .sample-task-actions {
+                justify-content: flex-start;
             }
         }
     </style>
@@ -594,8 +810,97 @@
                 <button class="panel-tab" type="button" role="tab" id="sampleTabChat" aria-selected="false" aria-controls="sampleChatPanel" data-sample-tab="chat">
                     <i class="fa-solid fa-wand-magic-sparkles"></i> 專屬 Skill 對話
                 </button>
+                <button class="panel-tab" type="button" role="tab" id="sampleTabSchedule" aria-selected="false" aria-controls="sampleSchedulePanel" data-sample-tab="schedule">
+                    <i class="fa-solid fa-clock-rotate-left"></i> 定期任務
+                </button>
+                <button class="panel-tab" type="button" role="tab" id="sampleTabMessages" aria-selected="false" aria-controls="sampleMessagesPanel" data-sample-tab="messages">
+                    <i class="fa-solid fa-tower-broadcast"></i> 即時訊息
+                </button>
             </div>
             <span class="status-pill is-checking" id="runtimeStatus"><i class="fa-solid fa-circle-notch fa-spin"></i> 檢查中</span>
+            <script>
+                (function () {
+                    function escapeHTML(value) {
+                        return String(value || "")
+                            .replaceAll("&", "&amp;")
+                            .replaceAll("<", "&lt;")
+                            .replaceAll(">", "&gt;")
+                            .replaceAll('"', "&quot;")
+                            .replaceAll("'", "&#039;");
+                    }
+                    function cookieValue(name) {
+                        var prefix = encodeURIComponent(name) + "=";
+                        var fallbackPrefix = name + "=";
+                        var found = document.cookie.split(";").map(function (item) {
+                            return item.trim();
+                        }).find(function (item) {
+                            return item.indexOf(prefix) === 0 || item.indexOf(fallbackPrefix) === 0;
+                        });
+                        return found ? found.slice(found.indexOf("=") + 1) : "";
+                    }
+                    function authHeaders() {
+                        var names = ["agentic_auth_token", "auth_token", "authToken", "token", "Authentication", "Authorization"];
+                        var raw = names.map(cookieValue).find(Boolean);
+                        if (!raw) return {};
+                        var decoded = "";
+                        try {
+                            decoded = decodeURIComponent(raw).trim();
+                        } catch {
+                            decoded = raw.trim();
+                        }
+                        if (!decoded) return {};
+                        var bearer = /^Bearer\s+/i.test(decoded) ? decoded : "Bearer " + decoded;
+                        return { "Authentication": bearer, "Authorization": bearer };
+                    }
+                    function setStatus(type, text, icon) {
+                        var el = document.getElementById("runtimeStatus");
+                        if (!el || el.dataset.fullLoadDone === "true") return;
+                        el.className = ("status-pill " + (type || "")).trim();
+                        el.innerHTML = '<i class="fa-solid ' + (icon || "fa-circle-info") + '"></i> ' + escapeHTML(text);
+                    }
+                    function fetchStatus(url) {
+                        var controller = new AbortController();
+                        var timer = window.setTimeout(function () {
+                            controller.abort();
+                        }, 3200);
+                        return fetch(url, {
+                            cache: "no-store",
+                            credentials: "same-origin",
+                            headers: Object.assign({ "Accept": "application/json" }, authHeaders()),
+                            signal: controller.signal
+                        }).then(function (response) {
+                            return response.ok ? response.json() : Promise.reject(new Error("HTTP " + response.status));
+                        }).finally(function () {
+                            window.clearTimeout(timer);
+                        });
+                    }
+                    var urls = [
+                        "/api/plugin/sample/api/sample/plugin/status",
+                        "/api/sample/plugin/status",
+                        "/api/plugin/sample/_plugin/status"
+                    ];
+                    var done = false;
+                    var remaining = urls.length;
+                    function markStatusProbeFailed() {
+                        remaining -= 1;
+                        if (!done && remaining <= 0) setStatus("is-checking", "連線待確認", "fa-circle-exclamation");
+                    }
+                    urls.forEach(function (url) {
+                        fetchStatus(url).then(function (data) {
+                            if (done) return;
+                            if (!data || data.success === false) {
+                                markStatusProbeFailed();
+                                return;
+                            }
+                            done = true;
+                            var loaded = Boolean(data.plugin && data.plugin.loaded);
+                            setStatus(loaded ? "is-ready" : "is-checking", loaded ? "已載入" : "未載入", loaded ? "fa-circle-check" : "fa-circle-info");
+                        }).catch(function () {
+                            markStatusProbeFailed();
+                        });
+                    });
+                }());
+            </script>
         </div>
 
         <div class="tab-panel" id="sampleActionsPanel" role="tabpanel" aria-labelledby="sampleTabActions" data-sample-tab-panel="actions">
@@ -605,6 +910,7 @@
                         <div class="actions">
                             <button type="button" data-action="config"><i class="fa-solid fa-gear"></i> Config</button>
                             <button type="button" data-action="items"><i class="fa-solid fa-list"></i> Items</button>
+                            <button type="button" data-action="mcp"><i class="fa-solid fa-plug-circle-bolt"></i> MCP</button>
                             <button type="button" data-action="createItem"><i class="fa-solid fa-plus"></i> Create</button>
                             <button type="button" data-action="job"><i class="fa-solid fa-gears"></i> Job</button>
                         </div>
@@ -653,7 +959,7 @@
                         </aside>
                         <section class="sample-chat-pane">
                             <div class="chat-log" id="sampleChatLog">
-                                <div class="chat-message assistant">請輸入 Sample Plugin 開發問題。送出時會先透過 Sample Plugin API 取得目前狀態、設定、資料與 MCP metadata，再導入專屬 SKILL.md 作為 SYSTEM PROMPT。</div>
+                                <div class="chat-message assistant">請輸入 Sample Plugin 開發問題。送出時會先透過 Sample Plugin API 取得目前狀態、設定、資料與 MCP 協定及工具資訊，再導入專屬 SKILL.md 作為 SYSTEM PROMPT。</div>
                             </div>
                             <div class="chat-form">
                                 <textarea id="sampleChatInput" placeholder="請輸入 Sample Plugin 開發問題..."></textarea>
@@ -662,6 +968,99 @@
                                     <button type="button" id="sampleChatClear"><i class="fa-solid fa-eraser"></i> 清除</button>
                                 </div>
                             </div>
+                        </section>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <div class="tab-panel" id="sampleSchedulePanel" role="tabpanel" aria-labelledby="sampleTabSchedule" data-sample-tab-panel="schedule" hidden>
+            <section class="panel">
+                <div class="panel-head">
+                    <span>定期任務</span>
+                    <div class="sample-head-actions">
+                        <span class="status-pill" id="sampleTaskCount"><i class="fa-solid fa-list-check"></i> 0 個任務</span>
+                        <button type="button" id="sampleTaskRefresh"><i class="fa-solid fa-rotate"></i> 重新整理</button>
+                        <button class="primary" type="button" id="sampleTaskAdd"><i class="fa-solid fa-plus"></i> 新增</button>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div class="sample-task-workspace">
+                        <section class="sample-task-pane" aria-label="定期任務列表">
+                            <div class="sample-task-section-head">
+                                <span>任務列表</span>
+                            </div>
+                            <div class="sample-task-list" id="sampleTaskList">
+                                <div class="note">讀取定期任務中...</div>
+                            </div>
+                        </section>
+                        <section class="sample-task-log-pane" aria-label="定期任務執行 LOG">
+                            <div class="sample-task-section-head">
+                                <span>執行 LOG</span>
+                                <div class="sample-task-log-tools">
+                                    <input class="sample-task-log-date" id="sampleTaskLogDate" type="date" aria-label="LOG 日期">
+                                    <div class="sample-task-log-pager" aria-label="LOG 筆數切換">
+                                        <button type="button" id="sampleTaskLogPrev" title="上一筆" aria-label="上一筆"><i class="fa-solid fa-chevron-up"></i></button>
+                                        <span class="sample-task-log-position" id="sampleTaskLogPosition">0 / 0</span>
+                                        <button type="button" id="sampleTaskLogNext" title="下一筆" aria-label="下一筆"><i class="fa-solid fa-chevron-down"></i></button>
+                                    </div>
+                                    <button type="button" id="sampleTaskLogRefresh"><i class="fa-solid fa-rotate"></i> 更新</button>
+                                </div>
+                            </div>
+                            <pre class="sample-task-log-output" id="sampleTaskLogOutput">尚未選擇任務。</pre>
+                        </section>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <div class="tab-panel" id="sampleMessagesPanel" role="tabpanel" aria-labelledby="sampleTabMessages" data-sample-tab-panel="messages" hidden>
+            <section class="panel">
+                <div class="panel-head">
+                    <span>即時訊息</span>
+                    <div class="sample-head-actions">
+                        <span class="status-pill is-checking" id="sampleMsgStatus"><i class="fa-solid fa-circle-info"></i> 未連線</span>
+                        <button type="button" id="sampleMsgRefresh"><i class="fa-solid fa-rotate"></i> 更新紀錄</button>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div class="sample-msg-workspace">
+                        <section class="sample-msg-pane" aria-label="即時訊息操作">
+                            <div class="sample-task-section-head">
+                                <span>發布與訂閱</span>
+                            </div>
+                            <div class="panel-body">
+                                <div class="form" style="margin-top:0">
+                                    <label>
+                                        Topic
+                                        <input id="sampleMsgTopic" value="sample.notice">
+                                    </label>
+                                    <label>
+                                        Event
+                                        <input id="sampleMsgEvent" value="created">
+                                    </label>
+                                    <label>
+                                        Payload JSON
+                                        <textarea id="sampleMsgPayload">{"message":"hello from sample message demo"}</textarea>
+                                    </label>
+                                    <div class="sample-msg-actions">
+                                        <button class="primary" type="button" id="sampleMsgPublishPlugin"><i class="fa-solid fa-plug"></i> Plugin 發布</button>
+                                        <button type="button" id="sampleMsgPublishBrowser"><i class="fa-solid fa-window-maximize"></i> Browser 發布</button>
+                                        <button type="button" id="sampleMsgConnect"><i class="fa-solid fa-satellite-dish"></i> 訂閱 SSE</button>
+                                        <button type="button" id="sampleMsgDisconnect"><i class="fa-solid fa-circle-stop"></i> 停止訂閱</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                        <section class="sample-msg-log-pane" aria-label="即時訊息紀錄">
+                            <div class="sample-task-section-head">
+                                <span>訊息紀錄</span>
+                                <div class="sample-task-log-tools">
+                                    <button type="button" id="sampleMsgClearLocal"><i class="fa-solid fa-eraser"></i> 清除畫面</button>
+                                    <button type="button" id="sampleMsgClearPlugin"><i class="fa-solid fa-trash"></i> 清空 Webhook</button>
+                                </div>
+                            </div>
+                            <pre class="sample-msg-log-output" id="sampleMsgLogOutput">尚未訂閱或接收訊息。</pre>
                         </section>
                     </div>
                 </div>
@@ -716,6 +1115,66 @@
         </form>
     </dialog>
 
+    <dialog id="sampleTaskDialog">
+        <form method="dialog" id="sampleTaskForm">
+            <div class="dialog-head">
+                <span id="sampleTaskDialogTitle">新增定期任務</span>
+                <button type="button" data-close-sample-task-dialog aria-label="關閉"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="dialog-body">
+                <label>
+                    任務名稱
+                    <input id="sampleTaskNameInput" required>
+                </label>
+                <label>
+                    任務 ID
+                    <input id="sampleTaskIdInput" placeholder="sample_hourly_job">
+                </label>
+                <label>
+                    執行間隔（分鐘）
+                    <input id="sampleTaskIntervalInput" type="number" min="1" max="1440" value="60">
+                </label>
+                <label>
+                    執行動作
+                    <select id="sampleTaskActionInput">
+                        <option value="job">建立背景工作</option>
+                        <option value="echo">Echo</option>
+                        <option value="tool">Tool Run</option>
+                    </select>
+                </label>
+                <label class="field-inline">
+                    <input id="sampleTaskEnabledInput" type="checkbox">
+                    啟用定期執行
+                </label>
+                <label>
+                    Payload JSON
+                    <textarea id="sampleTaskPayloadInput">{"message":"sample scheduled background job"}</textarea>
+                </label>
+            </div>
+            <div class="dialog-foot">
+                <button type="button" data-close-sample-task-dialog>取消</button>
+                <button class="primary" type="submit"><i class="fa-solid fa-floppy-disk"></i> 儲存</button>
+            </div>
+        </form>
+    </dialog>
+
+    <dialog id="sampleTaskTerminateDialog">
+        <form method="dialog" id="sampleTaskTerminateForm">
+            <div class="dialog-head">
+                <span>終止定期任務</span>
+                <button type="button" data-close-sample-task-terminate aria-label="關閉"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="dialog-body">
+                <div id="sampleTaskTerminateMessage">確定要終止此定期任務？</div>
+                <div class="note">終止會清除目前執行中的狀態並寫入 LOG。若該任務已啟動外部背景工作，背景工作需由對應流程自行支援取消。</div>
+            </div>
+            <div class="dialog-foot">
+                <button type="button" data-close-sample-task-terminate>取消</button>
+                <button class="danger" type="submit"><i class="fa-solid fa-stop"></i> 終止</button>
+            </div>
+        </form>
+    </dialog>
+
     <script src="/assets/js/api.js?v=3"></script>
     <script src="/assets/vendor/marked.min.js?v=1"></script>
     <script src="/assets/vendor/purify.min.js?v=1"></script>
@@ -740,6 +1199,41 @@
         const sampleSkillDeleteDialog = document.getElementById("sampleSkillDeleteDialog");
         const sampleSkillDeleteForm = document.getElementById("sampleSkillDeleteForm");
         const sampleSkillDeleteMessage = document.getElementById("sampleSkillDeleteMessage");
+        const sampleTaskList = document.getElementById("sampleTaskList");
+        const sampleTaskCount = document.getElementById("sampleTaskCount");
+        const sampleTaskAdd = document.getElementById("sampleTaskAdd");
+        const sampleTaskRefresh = document.getElementById("sampleTaskRefresh");
+        const sampleTaskLogRefresh = document.getElementById("sampleTaskLogRefresh");
+        const sampleTaskLogDate = document.getElementById("sampleTaskLogDate");
+        const sampleTaskLogPrev = document.getElementById("sampleTaskLogPrev");
+        const sampleTaskLogNext = document.getElementById("sampleTaskLogNext");
+        const sampleTaskLogPosition = document.getElementById("sampleTaskLogPosition");
+        const sampleTaskLogOutput = document.getElementById("sampleTaskLogOutput");
+        const sampleTaskDialog = document.getElementById("sampleTaskDialog");
+        const sampleTaskForm = document.getElementById("sampleTaskForm");
+        const sampleTaskDialogTitle = document.getElementById("sampleTaskDialogTitle");
+        const sampleTaskNameInput = document.getElementById("sampleTaskNameInput");
+        const sampleTaskIdInput = document.getElementById("sampleTaskIdInput");
+        const sampleTaskIntervalInput = document.getElementById("sampleTaskIntervalInput");
+        const sampleTaskActionInput = document.getElementById("sampleTaskActionInput");
+        const sampleTaskEnabledInput = document.getElementById("sampleTaskEnabledInput");
+        const sampleTaskPayloadInput = document.getElementById("sampleTaskPayloadInput");
+        const sampleTaskTerminateDialog = document.getElementById("sampleTaskTerminateDialog");
+        const sampleTaskTerminateForm = document.getElementById("sampleTaskTerminateForm");
+        const sampleTaskTerminateMessage = document.getElementById("sampleTaskTerminateMessage");
+        const sampleMsgStatus = document.getElementById("sampleMsgStatus");
+        const sampleMsgRefresh = document.getElementById("sampleMsgRefresh");
+        const sampleMsgTopic = document.getElementById("sampleMsgTopic");
+        const sampleMsgEvent = document.getElementById("sampleMsgEvent");
+        const sampleMsgPayload = document.getElementById("sampleMsgPayload");
+        const sampleMsgPublishPlugin = document.getElementById("sampleMsgPublishPlugin");
+        const sampleMsgPublishBrowser = document.getElementById("sampleMsgPublishBrowser");
+        const sampleMsgConnect = document.getElementById("sampleMsgConnect");
+        const sampleMsgDisconnect = document.getElementById("sampleMsgDisconnect");
+        const sampleMsgClearLocal = document.getElementById("sampleMsgClearLocal");
+        const sampleMsgClearPlugin = document.getElementById("sampleMsgClearPlugin");
+        const sampleMsgLogOutput = document.getElementById("sampleMsgLogOutput");
+        const sampleApiDefaultTimeoutMs = 9000;
         const sampleFallbackSkillCards = [
             {
                 id: "status",
@@ -760,22 +1254,32 @@
                 title: "MCP 能力盤點",
                 description: "整理工具、資源與 metadata 用法。",
                 icon: "fa-plug-circle-bolt",
-                prompt: "請根據目前 Sample Plugin 的 MCP metadata，說明它提供哪些工具、資源或能力，以及主服務可以如何透過 MCP 操作它。"
+                prompt: "請根據目前 Sample Plugin 的 MCP 協定與 tools/list 定義，說明它提供哪些工具、讀寫刪除邊界，以及主服務可以如何透過 MCP 操作它。"
             },
             {
                 id: "developer",
                 title: "開發移植檢查",
                 description: "檢查自定義 plugin 要替換的檔案與設定。",
                 icon: "fa-code",
-                prompt: "請把 Sample Plugin 當成開發模板，列出開發自定義 plugin 時需要調整的檔案、plugin.json 設定、API endpoint、MCP metadata 與部署注意事項。"
+                prompt: "請把 Sample Plugin 當成開發模板，列出開發自定義 plugin 時需要調整的檔案、plugin.json 設定、API endpoint、標準 MCP Server 與部署注意事項。"
             }
         ];
         let sampleSkillCards = [];
+        let sampleScheduledTasks = [];
         let editingSampleSkillCardId = "";
+        let editingSampleTaskId = "";
+        let terminatingSampleTaskId = "";
+        let selectedSampleTaskId = "";
+        let sampleTaskLogs = [];
+        let sampleTaskLogIndex = 0;
         let deletingSampleSkillCardId = "";
         let sampleChatHistory = [];
         let sampleChatSessionId = `sample_plugin_${Date.now()}`;
         let sampleChatStreaming = false;
+        let sampleMsgAbortController = null;
+        let sampleMsgLastEventID = 0;
+        let sampleMsgLiveEvents = [];
+        let sampleMsgWebhookEvents = [];
 
         function sampleAuthHeadersFromCookie() {
             const names = ["agentic_auth_token", "auth_token", "authToken", "token", "Authentication", "Authorization"];
@@ -810,48 +1314,77 @@
             };
         }
 
+        function sampleRequestTimeoutMs(options = {}) {
+            const timeout = Number(options.timeoutMs || sampleApiDefaultTimeoutMs);
+            return Number.isFinite(timeout) && timeout > 0 ? timeout : sampleApiDefaultTimeoutMs;
+        }
+
+        function withSampleTimeout(promise, options = {}) {
+            const timeout = sampleRequestTimeoutMs(options);
+            let timer = 0;
+            const timeoutPromise = new Promise((_, reject) => {
+                timer = window.setTimeout(() => reject(new Error(`外掛 API 等待逾時 (${Math.round(timeout / 1000)} 秒)`)), timeout);
+            });
+            return Promise.race([promise, timeoutPromise]).finally(() => window.clearTimeout(timer));
+        }
+
         async function rawFetchJSON(url, options = {}) {
-            const headers = { ...sampleAuthHeadersFromCookie(), ...(options.headers || {}) };
+            const { timeoutMs, ...fetchOptions } = options;
+            const headers = { ...sampleAuthHeadersFromCookie(), ...(fetchOptions.headers || {}) };
             if (!(options.body instanceof FormData)) headers["Content-Type"] = "application/json";
-            const response = await fetch(url, { credentials: "same-origin", ...options, headers });
-            const text = await response.text();
-            let data = {};
+            const controller = fetchOptions.signal ? null : new AbortController();
+            const timer = controller ? window.setTimeout(() => controller.abort(), sampleRequestTimeoutMs({ timeoutMs })) : 0;
             try {
-                data = text ? JSON.parse(text) : {};
-            } catch (error) {
-                data = { success: false, error: text || error.message };
+                const response = await fetch(url, {
+                    credentials: "same-origin",
+                    ...fetchOptions,
+                    headers,
+                    signal: fetchOptions.signal || controller?.signal
+                });
+                const text = await response.text();
+                let data = {};
+                try {
+                    data = text ? JSON.parse(text) : {};
+                } catch (error) {
+                    data = { success: false, error: text || error.message };
+                }
+                if (!response.ok && !data.error) data.error = `HTTP ${response.status}`;
+                return data;
+            } finally {
+                if (timer) window.clearTimeout(timer);
             }
-            if (!response.ok && !data.error) data.error = `HTTP ${response.status}`;
-            return data;
         }
 
         async function appFetchJSON(url, options = {}) {
+            const request = { timeoutMs: sampleApiDefaultTimeoutMs, ...options };
             if (typeof window.AgenticTalkAPI?.apiFetch === "function") {
-                return window.AgenticTalkAPI.apiFetch(url, withSampleAuthHeaders(options));
+                return withSampleTimeout(window.AgenticTalkAPI.apiFetch(url, withSampleAuthHeaders(request)), request);
             }
-            return rawFetchJSON(url, options);
+            return rawFetchJSON(url, request);
         }
 
         async function sampleApi(path, options = {}) {
             const normalized = String(path || "").startsWith("/") ? String(path || "") : `/${path || ""}`;
+            const request = { timeoutMs: sampleApiDefaultTimeoutMs, ...options };
             if (typeof window.AgenticTalkAPI?.fetchPlugin === "function") {
-                return window.AgenticTalkAPI.fetchPlugin("sample", normalized, withSampleAuthHeaders(options));
+                return withSampleTimeout(window.AgenticTalkAPI.fetchPlugin("sample", normalized, withSampleAuthHeaders(request)), request);
             }
-            return appFetchJSON(normalized, options);
+            return appFetchJSON(normalized, request);
         }
 
         async function samplePluginControl(path, options = {}) {
             const normalized = String(path || "").startsWith("/") ? String(path || "") : `/${path || ""}`;
+            const request = { timeoutMs: sampleApiDefaultTimeoutMs, ...options };
             if (typeof window.AgenticTalkAPI?.fetchPluginControl === "function") {
-                return window.AgenticTalkAPI.fetchPluginControl("sample", normalized, withSampleAuthHeaders(options));
+                return withSampleTimeout(window.AgenticTalkAPI.fetchPluginControl("sample", normalized, withSampleAuthHeaders(request)), request);
             }
-            const gateway = await appFetchJSON(`/api/plugin/sample/_plugin${normalized}`, options);
+            const gateway = await appFetchJSON(`/api/plugin/sample/_plugin${normalized}`, request);
             if (gateway.success || !String(gateway.error || "").includes("HTTP 404")) {
                 return gateway;
             }
             const command = normalized.replace(/^\/+/, "") || "status";
-            if (command === "mcp") return appFetchJSON("/mcp", options);
-            return appFetchJSON(`/api/sample/plugin/${command}`, options);
+            if (command === "mcp") return sampleApi("/api/sample/mcp", request);
+            return appFetchJSON(`/api/sample/plugin/${command}`, request);
         }
 
         function samplePluginCommandFromPath(path) {
@@ -870,7 +1403,8 @@
         }
 
         function activateSampleTab(tabName) {
-            const name = tabName === "chat" ? "chat" : "actions";
+            const allowed = new Set(["actions", "chat", "schedule", "messages"]);
+            const name = allowed.has(tabName) ? tabName : "actions";
             document.querySelectorAll("[data-sample-tab]").forEach((button) => {
                 const active = button.dataset.sampleTab === name;
                 button.classList.toggle("is-active", active);
@@ -929,7 +1463,7 @@
 
         async function loadSampleSkillCards() {
             try {
-                const data = await sampleApi("/api/sample/skills/cards", { method: "GET", cache: "no-store" });
+                const data = await sampleApi("/api/sample/skills/cards", { method: "GET", cache: "no-store", timeoutMs: 6000 });
                 sampleSkillCards = Array.isArray(data?.cards) && data.cards.length ? data.cards : sampleFallbackSkillCards;
             } catch (error) {
                 sampleSkillCards = sampleFallbackSkillCards;
@@ -1008,6 +1542,319 @@
             sampleChatInput.setSelectionRange?.(sampleChatInput.value.length, sampleChatInput.value.length);
         }
 
+        function normalizeSampleTask(task) {
+            return {
+                id: String(task?.id || "").trim(),
+                name: String(task?.name || "").trim(),
+                enabled: task?.enabled !== false,
+                interval_minutes: Math.max(1, Math.min(1440, Number(task?.interval_minutes || 60) || 60)),
+                action: String(task?.action || "job").trim() || "job",
+                payload: task?.payload && typeof task.payload === "object" ? task.payload : {},
+                last_run_at: String(task?.last_run_at || "").trim(),
+                next_run_at: String(task?.next_run_at || "").trim(),
+                running_until: String(task?.running_until || "").trim(),
+                run_token: String(task?.run_token || "").trim(),
+                last_started_at: String(task?.last_started_at || "").trim(),
+                last_result: String(task?.last_result || "").trim(),
+                last_error: String(task?.last_error || "").trim(),
+                created_at: String(task?.created_at || "").trim(),
+                updated_at: String(task?.updated_at || "").trim()
+            };
+        }
+
+        function sampleTaskActionText(action) {
+            switch (String(action || "").toLowerCase()) {
+                case "echo":
+                    return "Echo";
+                case "tool":
+                    return "Tool Run";
+                default:
+                    return "背景工作";
+            }
+        }
+
+        function sampleDisplayTime(value) {
+            const text = String(value || "").trim();
+            if (!text) return "尚無";
+            const date = new Date(text);
+            if (Number.isNaN(date.getTime())) return text;
+            return date.toLocaleString("zh-TW", { hour12: false });
+        }
+
+        function sampleTaskStatus(task) {
+            const now = Date.now();
+            const runningUntil = Date.parse(task.running_until || "");
+            if (Number.isFinite(runningUntil) && runningUntil > now) {
+                return { text: "執行中", className: "is-starting", icon: "fa-circle-notch fa-spin" };
+            }
+            if (task.enabled === false) {
+                return { text: "停用", className: "is-checking", icon: "fa-circle-pause" };
+            }
+            if (task.last_error) {
+                return { text: "錯誤", className: "is-error", icon: "fa-triangle-exclamation" };
+            }
+            return { text: "啟用", className: "is-ready", icon: "fa-circle-check" };
+        }
+
+        function sampleTodayString() {
+            const now = new Date();
+            const month = String(now.getMonth() + 1).padStart(2, "0");
+            const day = String(now.getDate()).padStart(2, "0");
+            return `${now.getFullYear()}-${month}-${day}`;
+        }
+
+        function sampleTaskLogLines(entry) {
+            if (!entry) return ["此日期沒有執行 LOG。"];
+            const lines = [
+                `LOG ID：${entry.id || "尚無"}`,
+                `任務：${entry.task_name || entry.task_id || "尚無"}`,
+                `任務 ID：${entry.task_id || "尚無"}`,
+                `狀態：${entry.status || "尚無"}`,
+                `手動執行：${entry.manual ? "是" : "否"}`,
+                `動作：${sampleTaskActionText(entry.action)}`,
+                `開始時間：${sampleDisplayTime(entry.started_at)}`,
+                `完成時間：${sampleDisplayTime(entry.finished_at)}`,
+                `建立時間：${sampleDisplayTime(entry.created_at)}`,
+                ""
+            ];
+            if (entry.error) {
+                lines.push("錯誤：", entry.error, "");
+            }
+            if (entry.result) {
+                lines.push("結果：", entry.result, "");
+            }
+            lines.push("Payload：", JSON.stringify(entry.payload || {}, null, 2));
+            return lines;
+        }
+
+        function renderSampleTaskLog() {
+            if (!sampleTaskLogOutput) return;
+            const count = sampleTaskLogs.length;
+            if (sampleTaskLogIndex < 0) sampleTaskLogIndex = 0;
+            if (sampleTaskLogIndex >= count) sampleTaskLogIndex = Math.max(0, count - 1);
+            const entry = count ? sampleTaskLogs[sampleTaskLogIndex] : null;
+            if (sampleTaskLogPosition) sampleTaskLogPosition.textContent = `${count ? sampleTaskLogIndex + 1 : 0} / ${count}`;
+            if (sampleTaskLogPrev) sampleTaskLogPrev.disabled = sampleTaskLogIndex <= 0;
+            if (sampleTaskLogNext) sampleTaskLogNext.disabled = sampleTaskLogIndex >= count - 1;
+            if (!selectedSampleTaskId) {
+                sampleTaskLogOutput.textContent = "請先選擇左側任務。";
+                return;
+            }
+            sampleTaskLogOutput.textContent = sampleTaskLogLines(entry).join("\n");
+        }
+
+        async function loadSampleTaskLogs() {
+            if (!sampleTaskLogDate) return;
+            if (!sampleTaskLogDate.value) sampleTaskLogDate.value = sampleTodayString();
+            if (!selectedSampleTaskId) {
+                sampleTaskLogs = [];
+                sampleTaskLogIndex = 0;
+                renderSampleTaskLog();
+                return;
+            }
+            try {
+                const params = new URLSearchParams({
+                    date: sampleTaskLogDate.value,
+                    task_id: selectedSampleTaskId
+                });
+                const data = await sampleApi(`/api/sample/scheduled-logs?${params.toString()}`, { method: "GET", cache: "no-store", timeoutMs: 6000 });
+                if (!data?.success) throw new Error(data?.error || "LOG 讀取失敗。");
+                sampleTaskLogs = Array.isArray(data.logs) ? data.logs : [];
+                sampleTaskLogIndex = Math.max(0, sampleTaskLogs.length - 1);
+            } catch (error) {
+                sampleTaskLogs = [];
+                sampleTaskLogIndex = 0;
+                if (sampleTaskLogOutput) sampleTaskLogOutput.textContent = error?.message || "LOG 讀取失敗。";
+                return;
+            }
+            renderSampleTaskLog();
+        }
+
+        function renderSampleScheduledTasks() {
+            if (!sampleTaskList) return;
+            const tasks = sampleScheduledTasks.map(normalizeSampleTask).filter((task) => task.id);
+            if (sampleTaskCount) sampleTaskCount.innerHTML = `<i class="fa-solid fa-list-check"></i> ${tasks.length} 個任務`;
+            if (!tasks.some((task) => task.id === selectedSampleTaskId)) {
+                selectedSampleTaskId = tasks[0]?.id || "";
+            }
+            if (!tasks.length) {
+                sampleTaskList.innerHTML = `<div class="note">尚未建立定期任務。</div>`;
+                sampleTaskLogs = [];
+                sampleTaskLogIndex = 0;
+                renderSampleTaskLog();
+                return;
+            }
+            sampleTaskList.innerHTML = tasks.map((task) => {
+                const status = sampleTaskStatus(task);
+                const result = task.last_error || task.last_result || "";
+                const statusControl = status.text === "執行中"
+                    ? `<button class="status-pill ${status.className}" type="button" title="終止執行中任務" aria-label="終止 ${escapeHtml(task.name || task.id)}" data-sample-task-terminate="${escapeHtml(task.id)}"><i class="fa-solid ${status.icon}"></i> ${escapeHtml(status.text)}</button>`
+                    : `<span class="status-pill ${status.className}"><i class="fa-solid ${status.icon}"></i> ${escapeHtml(status.text)}</span>`;
+                return `
+                    <article class="sample-task-card ${task.id === selectedSampleTaskId ? "is-selected" : ""}" data-sample-task-select="${escapeHtml(task.id)}">
+                        <div class="sample-task-main">
+                            <div class="sample-task-title">
+                                <span>${escapeHtml(task.name || task.id)}</span>
+                                ${statusControl}
+                            </div>
+                            <div class="sample-task-meta">
+                                ${escapeHtml(task.id)} · ${escapeHtml(sampleTaskActionText(task.action))} · 每 ${task.interval_minutes} 分鐘 · 上次：${escapeHtml(sampleDisplayTime(task.last_run_at))} · 下次：${escapeHtml(task.enabled === false ? "未排程" : sampleDisplayTime(task.next_run_at))}
+                            </div>
+                            ${result ? `<div class="sample-task-result">${escapeHtml(result)}</div>` : ""}
+                        </div>
+                        <div class="sample-task-actions">
+                            <button type="button" data-sample-task-run="${escapeHtml(task.id)}"><i class="fa-solid fa-play"></i> 執行</button>
+                            <button type="button" data-sample-task-toggle="${escapeHtml(task.id)}"><i class="fa-solid ${task.enabled === false ? "fa-toggle-off" : "fa-toggle-on"}"></i> ${task.enabled === false ? "啟用" : "停用"}</button>
+                            <button type="button" data-sample-task-edit="${escapeHtml(task.id)}"><i class="fa-solid fa-pen"></i> 編輯</button>
+                            <button type="button" data-sample-task-delete="${escapeHtml(task.id)}"><i class="fa-solid fa-trash"></i> 刪除</button>
+                        </div>
+                    </article>
+                `;
+            }).join("");
+        }
+
+        async function loadSampleScheduledTasks() {
+            try {
+                const data = await sampleApi("/api/sample/scheduled-tasks", { method: "GET", cache: "no-store", timeoutMs: 6000 });
+                if (!data?.success) throw new Error(data?.error || "定期任務讀取失敗。");
+                sampleScheduledTasks = Array.isArray(data.scheduled_tasks) ? data.scheduled_tasks : [];
+            } catch (error) {
+                sampleScheduledTasks = [];
+                if (sampleTaskList) sampleTaskList.innerHTML = `<div class="note">${escapeHtml(error?.message || "定期任務讀取失敗。")}</div>`;
+                renderSampleTaskLog();
+                return;
+            }
+            renderSampleScheduledTasks();
+            await loadSampleTaskLogs();
+        }
+
+        function defaultSampleTaskID(name) {
+            const base = String(name || "sample_task").trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "_").replace(/^_+|_+$/g, "");
+            return base || `sample_task_${Date.now()}`;
+        }
+
+        function openSampleTaskDialog(task = null) {
+            const normalized = task ? normalizeSampleTask(task) : null;
+            editingSampleTaskId = normalized?.id || "";
+            if (sampleTaskDialogTitle) sampleTaskDialogTitle.textContent = editingSampleTaskId ? "編輯定期任務" : "新增定期任務";
+            if (sampleTaskNameInput) sampleTaskNameInput.value = normalized?.name || "";
+            if (sampleTaskIdInput) {
+                sampleTaskIdInput.value = normalized?.id || "";
+                sampleTaskIdInput.disabled = Boolean(editingSampleTaskId);
+            }
+            if (sampleTaskIntervalInput) sampleTaskIntervalInput.value = Number(normalized?.interval_minutes || 60);
+            if (sampleTaskActionInput) sampleTaskActionInput.value = normalized?.action || "job";
+            if (sampleTaskEnabledInput) sampleTaskEnabledInput.checked = normalized?.enabled !== false;
+            if (sampleTaskPayloadInput) sampleTaskPayloadInput.value = JSON.stringify(normalized?.payload || { message: "sample scheduled background job" }, null, 2);
+            sampleTaskDialog?.showModal();
+            sampleTaskNameInput?.focus();
+        }
+
+        async function saveSampleTaskList(tasks) {
+            const data = await sampleApi("/api/sample/scheduled-tasks", {
+                method: "PUT",
+                body: JSON.stringify({ scheduled_tasks: tasks })
+            });
+            if (!data?.success) throw new Error(data?.error || "定期任務儲存失敗。");
+            sampleScheduledTasks = Array.isArray(data.scheduled_tasks) ? data.scheduled_tasks : tasks;
+            renderSampleScheduledTasks();
+            return data;
+        }
+
+        async function saveSampleTaskFromDialog() {
+            let payload = {};
+            const payloadText = String(sampleTaskPayloadInput?.value || "").trim();
+            if (payloadText) payload = JSON.parse(payloadText);
+            const name = String(sampleTaskNameInput?.value || "").trim();
+            const id = editingSampleTaskId || String(sampleTaskIdInput?.value || "").trim() || defaultSampleTaskID(name);
+            const existing = sampleScheduledTasks.find((task) => String(task.id || "") === editingSampleTaskId);
+            const now = new Date().toISOString();
+            const task = {
+                ...existing,
+                id,
+                name: name || "未命名定期任務",
+                enabled: Boolean(sampleTaskEnabledInput?.checked),
+                interval_minutes: Math.max(1, Math.min(1440, Number(sampleTaskIntervalInput?.value || 60) || 60)),
+                action: String(sampleTaskActionInput?.value || "job"),
+                payload,
+                created_at: existing?.created_at || now,
+                updated_at: now
+            };
+            const nextTasks = sampleScheduledTasks.filter((item) => String(item.id || "") !== editingSampleTaskId && String(item.id || "") !== id);
+            nextTasks.push(task);
+            selectedSampleTaskId = id;
+            await saveSampleTaskList(nextTasks);
+            sampleTaskDialog?.close();
+        }
+
+        async function setSampleTaskEnabled(id, enabled) {
+            const now = new Date().toISOString();
+            selectedSampleTaskId = id;
+            const tasks = sampleScheduledTasks.map((task) => {
+                if (String(task.id || "") !== String(id || "")) return task;
+                return {
+                    ...task,
+                    enabled,
+                    next_run_at: enabled ? "" : "",
+                    running_until: enabled ? task.running_until || "" : "",
+                    run_token: enabled ? task.run_token || "" : "",
+                    last_started_at: enabled ? task.last_started_at || "" : "",
+                    updated_at: now
+                };
+            });
+            await saveSampleTaskList(tasks);
+            await loadSampleTaskLogs();
+        }
+
+        async function runSampleTask(id) {
+            const data = await sampleApi(`/api/sample/scheduled-tasks/${encodeURIComponent(id)}/run`, {
+                method: "POST",
+                body: "{}",
+                timeoutMs: 9000
+            });
+            if (!data?.success) throw new Error(data?.error || "定期任務執行失敗。");
+            sampleScheduledTasks = Array.isArray(data.scheduled_tasks) ? data.scheduled_tasks : sampleScheduledTasks;
+            selectedSampleTaskId = id;
+            renderSampleScheduledTasks();
+            await loadSampleScheduledTasks();
+            await loadSampleTaskLogs();
+        }
+
+        function openSampleTaskTerminateDialog(id) {
+            const task = sampleScheduledTasks.map(normalizeSampleTask).find((item) => String(item.id || "") === String(id || ""));
+            if (!task) return;
+            terminatingSampleTaskId = task.id;
+            selectedSampleTaskId = task.id;
+            if (sampleTaskTerminateMessage) {
+                sampleTaskTerminateMessage.textContent = `確定要終止「${task.name || task.id}」目前執行中的任務？`;
+            }
+            renderSampleScheduledTasks();
+            sampleTaskTerminateDialog?.showModal();
+        }
+
+        async function terminateSampleTask(id) {
+            const data = await sampleApi(`/api/sample/scheduled-tasks/${encodeURIComponent(id)}/terminate`, {
+                method: "POST",
+                body: "{}",
+                timeoutMs: 9000
+            });
+            if (!data?.success) throw new Error(data?.error || "定期任務終止失敗。");
+            sampleScheduledTasks = Array.isArray(data.scheduled_tasks) ? data.scheduled_tasks : sampleScheduledTasks;
+            selectedSampleTaskId = id;
+            renderSampleScheduledTasks();
+            await loadSampleScheduledTasks();
+            await loadSampleTaskLogs();
+        }
+
+        async function deleteSampleTask(id) {
+            const data = await sampleApi(`/api/sample/scheduled-tasks/${encodeURIComponent(id)}`, { method: "DELETE" });
+            if (!data?.success) throw new Error(data?.error || "定期任務刪除失敗。");
+            sampleScheduledTasks = Array.isArray(data.scheduled_tasks) ? data.scheduled_tasks : sampleScheduledTasks.filter((task) => String(task.id || "") !== String(id || ""));
+            if (selectedSampleTaskId === id) selectedSampleTaskId = "";
+            renderSampleScheduledTasks();
+            await loadSampleTaskLogs();
+        }
+
         function readJSONBody() {
             const text = document.getElementById("jsonBody").value.trim();
             if (!text) return {};
@@ -1022,12 +1869,9 @@
                 const data = command
                     ? await samplePluginControl(command, options)
                     : await sampleApi(path, options);
-                updateRuntimeStatus(data);
                 printResult(title, data);
                 return data;
             } catch (error) {
-                runtimeStatus.classList.add("is-error");
-                runtimeStatus.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> ${error?.message || "呼叫失敗"}`;
                 output.textContent = `${title}\n\n${error?.message || error}`;
                 return null;
             } finally {
@@ -1045,6 +1889,239 @@
             const text = String(value || "");
             if (text.length <= maxLength) return text;
             return `${text.slice(0, maxLength)}\n...已截斷 ${text.length - maxLength} 字元`;
+        }
+
+        function sampleMainAPIPath(path) {
+            const normalized = String(path || "").startsWith("/") ? String(path || "") : `/${path || ""}`;
+            const match = String(window.location.pathname || "").match(/^\/pass\/[^/]+\/\d+(?=\/)/);
+            return match ? `${match[0]}${normalized}` : normalized;
+        }
+
+        function setSampleMsgStatus(type, text, icon = "fa-circle-info") {
+            if (!sampleMsgStatus) return;
+            sampleMsgStatus.className = `status-pill ${type || ""}`.trim();
+            sampleMsgStatus.innerHTML = `<i class="fa-solid ${icon}"></i> ${escapeHtml(text)}`;
+        }
+
+        function readSampleMsgPayload() {
+            const text = String(sampleMsgPayload?.value || "").trim();
+            if (!text) return {};
+            const payload = JSON.parse(text);
+            if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+                throw new Error("Payload 必須是 JSON object。");
+            }
+            return payload;
+        }
+
+        function sampleMsgRequestBody() {
+            const topic = String(sampleMsgTopic?.value || "").trim();
+            if (!topic) throw new Error("Topic 不可空白。");
+            return {
+                topic,
+                event: String(sampleMsgEvent?.value || "message").trim() || "message",
+                payload: readSampleMsgPayload()
+            };
+        }
+
+        function appendSampleMsgLiveEvent(kind, eventName, payload) {
+            const seq = Number(payload?.seq || 0);
+            if (Number.isFinite(seq) && seq > sampleMsgLastEventID) {
+                sampleMsgLastEventID = seq;
+            }
+            sampleMsgLiveEvents.unshift({
+                kind,
+                event: eventName || "message",
+                received_at: new Date().toISOString(),
+                payload
+            });
+            sampleMsgLiveEvents = sampleMsgLiveEvents.slice(0, 50);
+            renderSampleMsgLog();
+        }
+
+        function renderSampleMsgLog() {
+            if (!sampleMsgLogOutput) return;
+            const lines = [];
+            lines.push("Browser SSE：");
+            if (!sampleMsgLiveEvents.length) {
+                lines.push("  尚未接收。");
+            } else {
+                sampleMsgLiveEvents.slice(0, 20).forEach((entry, index) => {
+                    lines.push(`  [${index + 1}] ${entry.event} · ${sampleDisplayTime(entry.received_at)}`);
+                    lines.push(compactJSON(entry.payload || {}, 4000).split("\n").map((line) => `      ${line}`).join("\n"));
+                });
+            }
+            lines.push("", "Plugin Webhook 收件紀錄：");
+            if (!sampleMsgWebhookEvents.length) {
+                lines.push("  尚未接收。");
+            } else {
+                sampleMsgWebhookEvents.slice(0, 20).forEach((entry, index) => {
+                    lines.push(`  [${index + 1}] seq=${entry.seq || "-"} · ${entry.topic || "-"} · ${entry.event || "message"} · source=${entry.source || "-"}`);
+                    lines.push(`      received_at=${sampleDisplayTime(entry.received_at)}`);
+                    lines.push(compactJSON(entry.payload || {}, 4000).split("\n").map((line) => `      ${line}`).join("\n"));
+                });
+            }
+            sampleMsgLogOutput.textContent = lines.join("\n");
+        }
+
+        async function loadSampleMsgEvents() {
+            try {
+                const data = await sampleApi("/api/sample/msg/events", { method: "GET", cache: "no-store", timeoutMs: 6000 });
+                if (!data?.success) throw new Error(data?.error || "訊息紀錄讀取失敗。");
+                sampleMsgWebhookEvents = Array.isArray(data.events) ? data.events : [];
+                renderSampleMsgLog();
+            } catch (error) {
+                if (sampleMsgLogOutput) sampleMsgLogOutput.textContent = error?.message || "訊息紀錄讀取失敗。";
+            }
+        }
+
+        async function clearSampleMsgWebhookEvents() {
+            const data = await sampleApi("/api/sample/msg/events", { method: "DELETE", timeoutMs: 6000 });
+            if (!data?.success) throw new Error(data?.error || "Webhook 紀錄清空失敗。");
+            sampleMsgWebhookEvents = [];
+            renderSampleMsgLog();
+        }
+
+        async function publishSampleMsgFromPlugin() {
+            const body = sampleMsgRequestBody();
+            const data = await sampleApi("/api/sample/msg/publish", {
+                method: "POST",
+                body: JSON.stringify(body),
+                timeoutMs: 9000
+            });
+            if (!data?.success) throw new Error(data?.error || "Plugin 發布失敗。");
+            appendSampleMsgLiveEvent("publish", "plugin.publish.accepted", data.published || data);
+            await loadSampleMsgEvents();
+        }
+
+        async function publishSampleMsgFromBrowser() {
+            const body = { ...sampleMsgRequestBody(), source: "sample-browser" };
+            const data = await appFetchJSON(sampleMainAPIPath("/api/msg/publish"), {
+                method: "POST",
+                body: JSON.stringify(body),
+                timeoutMs: 9000
+            });
+            if (!data?.success) throw new Error(data?.error || "Browser 發布失敗。");
+            appendSampleMsgLiveEvent("publish", "browser.publish.accepted", data);
+            await loadSampleMsgEvents();
+        }
+
+        function sampleMsgSubscribePath() {
+            const topic = String(sampleMsgTopic?.value || "*").trim() || "*";
+            const params = new URLSearchParams({ topics: topic });
+            if (sampleMsgLastEventID > 0) params.set("last_event_id", String(sampleMsgLastEventID));
+            return sampleMainAPIPath(`/api/msg/subscribe?${params.toString()}`);
+        }
+
+        function dispatchSampleSSEChunk(chunk) {
+            const lines = String(chunk || "").split("\n");
+            let eventName = "message";
+            let eventID = "";
+            const dataLines = [];
+            lines.forEach((line) => {
+                if (line.startsWith("id:")) eventID = line.slice(3).trim();
+                if (line.startsWith("event:")) eventName = line.slice(6).trim() || "message";
+                if (line.startsWith("data:")) dataLines.push(line.slice(5).trimStart());
+            });
+            if (eventID) {
+                const id = Number(eventID);
+                if (Number.isFinite(id) && id > sampleMsgLastEventID) sampleMsgLastEventID = id;
+            }
+            const rawData = dataLines.join("\n");
+            let payload = {};
+            if (rawData) {
+                try {
+                    payload = JSON.parse(rawData);
+                } catch (error) {
+                    payload = { raw: rawData };
+                }
+            }
+            appendSampleMsgLiveEvent("sse", eventName, payload);
+            window.setTimeout(loadSampleMsgEvents, 250);
+        }
+
+        async function connectSampleMsgStream() {
+            disconnectSampleMsgStream();
+            const url = sampleMsgSubscribePath();
+            const controller = new AbortController();
+            sampleMsgAbortController = controller;
+            setSampleMsgStatus("is-starting", "連線中", "fa-circle-notch fa-spin");
+            try {
+                const response = await fetch(url, withSampleAuthHeaders({
+                    method: "GET",
+                    cache: "no-store",
+                    headers: { "Accept": "text/event-stream" },
+                    signal: controller.signal
+                }));
+                if (!response.ok || !response.body) {
+                    let detail = "";
+                    try {
+                        detail = await response.text();
+                    } catch {
+                        detail = "";
+                    }
+                    throw new Error(compactText(JSON.stringify({
+                        status: response.status,
+                        status_text: response.statusText,
+                        content_type: response.headers.get("content-type") || "",
+                        body: detail || ""
+                    }, null, 2), 3000));
+                }
+                setSampleMsgStatus("is-ready", "已訂閱", "fa-satellite-dish");
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder("utf-8");
+                let buffer = "";
+                let chunkCount = 0;
+                while (sampleMsgAbortController === controller) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    chunkCount += 1;
+                    buffer += decoder.decode(value, { stream: true }).replaceAll("\r\n", "\n");
+                    while (buffer.includes("\n\n")) {
+                        const index = buffer.indexOf("\n\n");
+                        const chunk = buffer.slice(0, index);
+                        buffer = buffer.slice(index + 2);
+                        if (chunk.trim()) dispatchSampleSSEChunk(chunk);
+                    }
+                }
+                if (buffer.trim()) {
+                    dispatchSampleSSEChunk(buffer);
+                    buffer = "";
+                }
+                if (sampleMsgAbortController === controller) {
+                    setSampleMsgStatus("is-error", "連線中斷", "fa-triangle-exclamation");
+                    sampleMsgAbortController = null;
+                    appendSampleMsgLiveEvent("error", "subscribe.closed", {
+                        url,
+                        status: response.status,
+                        content_type: response.headers.get("content-type") || "",
+                        chunks: chunkCount,
+                        message: chunkCount > 0
+                            ? "SSE stream 已結束。若不是手動停止，請檢查主服務或 proxy 是否中斷長連線。"
+                            : "SSE stream 開啟後沒有收到任何資料就結束。請檢查 /api/msg/subscribe 是否被主服務、proxy 或認證流程關閉。"
+                    });
+                }
+            } catch (error) {
+                if (controller.signal.aborted) return;
+                sampleMsgAbortController = null;
+                setSampleMsgStatus("is-error", "連線失敗", "fa-triangle-exclamation");
+                appendSampleMsgLiveEvent("error", "subscribe.error", {
+                    url,
+                    error: error?.message || String(error),
+                    auth_header_available: Boolean(Object.keys(sampleAuthHeadersFromCookie()).length),
+                    cookie_names: String(document.cookie || "")
+                        .split(";")
+                        .map((part) => part.trim().split("=")[0])
+                        .filter(Boolean)
+                });
+            }
+        }
+
+        function disconnectSampleMsgStream() {
+            if (sampleMsgAbortController) {
+                sampleMsgAbortController.abort();
+                sampleMsgAbortController = null;
+            }
+            setSampleMsgStatus("is-checking", "未連線", "fa-circle-info");
         }
 
         function escapeHtml(value) {
@@ -1116,7 +2193,7 @@
         function resetSampleChat() {
             if (sampleChatLog) {
                 sampleChatLog.innerHTML = "";
-                appendChatMessage("assistant", "請輸入 Sample Plugin 開發問題。送出時會先透過 Sample Plugin API 取得目前狀態、設定、資料與 MCP metadata，再導入專屬 SKILL.md 作為 SYSTEM PROMPT。");
+                appendChatMessage("assistant", "請輸入 Sample Plugin 開發問題。送出時會先透過 Sample Plugin API 取得目前狀態、設定、資料與 MCP 協定及工具資訊，再導入專屬 SKILL.md 作為 SYSTEM PROMPT。");
             }
             if (sampleChatInput) sampleChatInput.value = "";
             sampleChatHistory = [];
@@ -1166,7 +2243,8 @@
                 ["registration", "/api/sample/plugin/registration", { method: "GET", cache: "no-store" }],
                 ["config", "/api/sample/config", { method: "GET", cache: "no-store" }],
                 ["items", "/api/sample/items", { method: "GET", cache: "no-store" }],
-                ["mcp", "/mcp", { method: "GET", cache: "no-store" }],
+                ["scheduledTasks", "/api/sample/scheduled-tasks", { method: "GET", cache: "no-store" }],
+                ["mcp", "/api/sample/mcp", { method: "GET", cache: "no-store" }],
                 ["skills", "/api/sample/skills", { method: "GET", cache: "no-store" }]
             ];
             const context = {};
@@ -1297,7 +2375,9 @@
 
         function updateRuntimeStatus(data) {
             const plugin = data?.plugin || data?.service?.plugin || data?.sample?.plugin;
+            if (!plugin) return;
             const loaded = Boolean(plugin?.loaded);
+            runtimeStatus.dataset.fullLoadDone = "true";
             runtimeStatus.className = `status-pill ${loaded ? "is-ready" : "is-checking"}`;
             runtimeStatus.innerHTML = loaded
                 ? `<i class="fa-solid fa-circle-check"></i> 已載入`
@@ -1306,6 +2386,7 @@
 
         function setRuntimeStatus(type, text, icon = "") {
             const iconClass = icon || (type === "is-error" ? "fa-triangle-exclamation" : "fa-circle-info");
+            runtimeStatus.dataset.fullLoadDone = "true";
             runtimeStatus.className = `status-pill ${type}`;
             runtimeStatus.innerHTML = `<i class="fa-solid ${iconClass}"></i> ${escapeHtml(text)}`;
         }
@@ -1313,6 +2394,7 @@
         const handlers = {
             config: () => callPlugin("Config", "/api/sample/config"),
             items: () => callPlugin("Items", "/api/sample/items"),
+            mcp: () => callPlugin("MCP", "/api/sample/mcp"),
             createItem: () => callPlugin("Create Item", "/api/sample/items", {
                 method: "POST",
                 body: JSON.stringify(readJSONBody()),
@@ -1341,12 +2423,12 @@
             }
             try {
                 setRuntimeStatus("is-checking", "檢查中", "fa-circle-notch fa-spin");
-                const status = await samplePluginControl("/status", { method: "GET", cache: "no-store" });
+                const status = await samplePluginControl("/status", { method: "GET", cache: "no-store", timeoutMs: 6000 });
                 if (status?.success && status?.plugin?.loaded) {
                     updateRuntimeStatus(status);
                 } else {
                     setRuntimeStatus("is-starting", "啟動中", "fa-circle-notch fa-spin");
-                    const loaded = await samplePluginControl("/load", { method: "POST", body: "{}" });
+                    const loaded = await samplePluginControl("/load", { method: "POST", body: "{}", timeoutMs: 9000 });
                     if (!loaded?.success) {
                         throw new Error(loaded?.error || "載入失敗");
                     }
@@ -1356,7 +2438,9 @@
                 setRuntimeStatus("is-error", error?.message || "服務錯誤", "fa-triangle-exclamation");
             }
             await loadSampleSkillCards();
-            await callPlugin("Plugin Status", "/api/sample/plugin/status", { method: "GET", cache: "no-store" });
+            await loadSampleScheduledTasks();
+            await loadSampleMsgEvents();
+            await callPlugin("Plugin Status", "/api/sample/plugin/status", { method: "GET", cache: "no-store", timeoutMs: 6000 });
         }
 
         document.querySelectorAll("[data-action]").forEach((button) => {
@@ -1404,6 +2488,78 @@
         document.querySelectorAll("[data-close-sample-skill-delete]").forEach((button) => {
             button.addEventListener("click", () => sampleSkillDeleteDialog?.close());
         });
+        sampleTaskAdd?.addEventListener("click", () => openSampleTaskDialog());
+        sampleTaskRefresh?.addEventListener("click", loadSampleScheduledTasks);
+        sampleTaskLogRefresh?.addEventListener("click", loadSampleTaskLogs);
+        sampleTaskLogDate?.addEventListener("change", loadSampleTaskLogs);
+        sampleTaskLogPrev?.addEventListener("click", () => {
+            sampleTaskLogIndex = Math.max(0, sampleTaskLogIndex - 1);
+            renderSampleTaskLog();
+        });
+        sampleTaskLogNext?.addEventListener("click", () => {
+            sampleTaskLogIndex = Math.min(sampleTaskLogs.length - 1, sampleTaskLogIndex + 1);
+            renderSampleTaskLog();
+        });
+        sampleTaskForm?.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            try {
+                await saveSampleTaskFromDialog();
+            } catch (error) {
+                window.alert(error?.message || "定期任務儲存失敗。");
+            }
+        });
+        document.querySelectorAll("[data-close-sample-task-dialog]").forEach((button) => {
+            button.addEventListener("click", () => sampleTaskDialog?.close());
+        });
+        document.querySelectorAll("[data-close-sample-task-terminate]").forEach((button) => {
+            button.addEventListener("click", () => {
+                terminatingSampleTaskId = "";
+                sampleTaskTerminateDialog?.close();
+            });
+        });
+        sampleTaskTerminateForm?.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const id = terminatingSampleTaskId;
+            if (!id) {
+                sampleTaskTerminateDialog?.close();
+                return;
+            }
+            try {
+                await terminateSampleTask(id);
+                terminatingSampleTaskId = "";
+                sampleTaskTerminateDialog?.close();
+            } catch (error) {
+                window.alert(error?.message || "定期任務終止失敗。");
+            }
+        });
+        sampleTaskList?.addEventListener("click", async (event) => {
+            const selectID = event.target.closest("[data-sample-task-select]")?.dataset.sampleTaskSelect;
+            const editID = event.target.closest("[data-sample-task-edit]")?.dataset.sampleTaskEdit;
+            const deleteID = event.target.closest("[data-sample-task-delete]")?.dataset.sampleTaskDelete;
+            const toggleID = event.target.closest("[data-sample-task-toggle]")?.dataset.sampleTaskToggle;
+            const runID = event.target.closest("[data-sample-task-run]")?.dataset.sampleTaskRun;
+            const terminateID = event.target.closest("[data-sample-task-terminate]")?.dataset.sampleTaskTerminate;
+            try {
+                if (terminateID) {
+                    openSampleTaskTerminateDialog(terminateID);
+                } else if (editID) {
+                    openSampleTaskDialog(sampleScheduledTasks.find((task) => String(task.id || "") === editID));
+                } else if (deleteID) {
+                    if (window.confirm("確定要刪除此定期任務？")) await deleteSampleTask(deleteID);
+                } else if (toggleID) {
+                    const task = sampleScheduledTasks.find((item) => String(item.id || "") === toggleID);
+                    await setSampleTaskEnabled(toggleID, task?.enabled === false);
+                } else if (runID) {
+                    await runSampleTask(runID);
+                } else if (selectID) {
+                    selectedSampleTaskId = selectID;
+                    renderSampleScheduledTasks();
+                    await loadSampleTaskLogs();
+                }
+            } catch (error) {
+                window.alert(error?.message || "定期任務操作失敗。");
+            }
+        });
         sampleChatSend?.addEventListener("click", sendSampleChatMessage);
         sampleChatInput?.addEventListener("keydown", (event) => {
             if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
@@ -1412,11 +2568,48 @@
             }
         });
         sampleChatClear?.addEventListener("click", resetSampleChat);
+        sampleMsgRefresh?.addEventListener("click", loadSampleMsgEvents);
+        sampleMsgConnect?.addEventListener("click", connectSampleMsgStream);
+        sampleMsgDisconnect?.addEventListener("click", disconnectSampleMsgStream);
+        sampleMsgClearLocal?.addEventListener("click", () => {
+            sampleMsgLiveEvents = [];
+            renderSampleMsgLog();
+        });
+        sampleMsgClearPlugin?.addEventListener("click", async () => {
+            try {
+                await clearSampleMsgWebhookEvents();
+            } catch (error) {
+                window.alert(error?.message || "Webhook 紀錄清空失敗。");
+            }
+        });
+        sampleMsgPublishPlugin?.addEventListener("click", async () => {
+            try {
+                await publishSampleMsgFromPlugin();
+            } catch (error) {
+                window.alert(error?.message || "Plugin 發布失敗。");
+            }
+        });
+        sampleMsgPublishBrowser?.addEventListener("click", async () => {
+            try {
+                await publishSampleMsgFromBrowser();
+            } catch (error) {
+                window.alert(error?.message || "Browser 發布失敗。");
+            }
+        });
+        window.addEventListener("beforeunload", disconnectSampleMsgStream);
 
         if (typeof window.AgenticTalkAPI?.startAuthMonitor === "function") {
             window.AgenticTalkAPI.startAuthMonitor();
         }
-        initializeSamplePlugin();
+
+        let samplePageStarted = false;
+        function startSamplePluginPage() {
+            if (samplePageStarted) return;
+            samplePageStarted = true;
+            initializeSamplePlugin();
+        }
+        window.setTimeout(startSamplePluginPage, 0);
+        document.addEventListener("DOMContentLoaded", startSamplePluginPage, { once: true });
     </script>
 </body>
 </html>
