@@ -7,6 +7,11 @@
     "min_length": 6,
     "require_enabled_account": true
   },
+  "mcp": {
+    "read": false,
+    "write": false,
+    "delete": false
+  },
   "accounts": [
     {
       "id": "admin",
@@ -29,6 +34,7 @@
       "name": "系統管理群組",
       "enabled": true,
       "note": "管理員預設群組",
+      "workspace_ids": ["default"],
       "created_at": "2026-05-27T00:00:00+08:00",
       "updated_at": "2026-05-27T00:00:00+08:00",
       "permissions": [

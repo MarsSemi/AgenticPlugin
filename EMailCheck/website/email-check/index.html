@@ -226,14 +226,58 @@
 	  </dialog>
 	  <script src="/assets/js/api.js?v=3"></script>
   <script>
-    if (typeof window.AgenticTalkAPI?.fetchPlugin !== "function") {
-      window.AgenticPluginDev = {
-        pluginId: "email-check",
-        pluginApiBase: "/api/email-check",
-        serviceURL: window.location.origin
+    (() => {
+      if (typeof window.AgenticTalkAPI?.fetchPlugin === "function" && typeof window.AgenticTalkAPI?.apiFetch === "function") {
+        return;
+      }
+      const pluginId = "email-check";
+      const pluginApiBase = "/api/email-check";
+      const normalizePath = (path) => String(path || "").startsWith("/") ? String(path || "") : `/${path || ""}`;
+      const readCookie = (name) => document.cookie
+        .split(";")
+        .map((part) => part.trim())
+        .find((part) => part.startsWith(`${name}=`))
+        ?.slice(name.length + 1) || "";
+      const parseJSON = async (response) => {
+        const text = await response.text();
+        let data = {};
+        if (text) {
+          try {
+            data = JSON.parse(text);
+          } catch {
+            data = { success: false, error: text };
+          }
+        }
+        if (!response.ok && !data.error) {
+          data.error = `HTTP ${response.status}`;
+        }
+        return data;
       };
-      document.write('<script src="/basepkg/host-adapter.js?v=1"><\/script>');
-    }
+      const apiFetch = async (path, options = {}) => parseJSON(await fetch(normalizePath(path), {
+        credentials: "same-origin",
+        ...options,
+      }));
+      window.AgenticTalkAPI = {
+        ...(window.AgenticTalkAPI || {}),
+        apiFetch,
+        fetchPlugin(id, path, options = {}) {
+          const target = id === pluginId ? normalizePath(path) : `/api/plugin/${encodeURIComponent(id)}${normalizePath(path)}`;
+          return apiFetch(target, options);
+        },
+        fetchPluginControl(id, path, options = {}) {
+          const target = id === pluginId ? `${pluginApiBase}/plugin${normalizePath(path)}` : `/api/plugin/${encodeURIComponent(id)}/_plugin${normalizePath(path)}`;
+          return apiFetch(target, options);
+        },
+        authHeaders() {
+          const token = readCookie("agentic_auth_token") || readCookie("token");
+          return token ? { Authorization: `Bearer ${decodeURIComponent(token)}` } : {};
+        },
+        getCookie(name) {
+          const value = readCookie(name);
+          return value ? decodeURIComponent(value) : "";
+        },
+      };
+    })();
   </script>
 	  <script defer src="./app.js?v=20260526-15"></script>
 	</body>

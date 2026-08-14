@@ -1,6 +1,7 @@
 package accountmanager
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
@@ -12,18 +13,69 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
 var AccountManagerConfigPath = "plugins/account-manager/config.json"
 var AccountManagerVersion = "0.1.0"
+
+const (
+	accountManagerVerifyRateLimitMaxAttempts = 5
+	accountManagerVerifyRateLimitWindow      = 5 * time.Minute
+	accountManagerVerifyRateLimitCooldown    = 15 * time.Minute
+	accountManagerInvalidCredentialsError    = "invalid credentials"
+	accountManagerDefaultWorkspaceID         = "default"
+)
+
+func recoverAccountManagerPanic(context string) any {
+	recovered := recover()
+	if recovered == nil {
+		return nil
+	}
+	context = strings.TrimSpace(context)
+	if context == "" {
+		context = "unknown"
+	}
+	_, _ = fmt.Fprintf(os.Stderr, "[account-manager] recovered panic in %s: %v\n%s\n", context, recovered, debug.Stack())
+	return recovered
+}
+
+func accountManagerRecoveredJSON(context string) []byte {
+	return mustAccountManagerJSON(map[string]any{
+		"success": false,
+		"error":   "internal account manager error",
+		"code":    "PANIC_RECOVERED",
+		"context": strings.TrimSpace(context),
+	})
+}
+
+func accountManagerRecoveredError(context string) error {
+	context = strings.TrimSpace(context)
+	if context == "" {
+		return errors.New("internal account manager error")
+	}
+	return fmt.Errorf("internal account manager error: %s", context)
+}
+
+var accountManagerStdioAuth = struct {
+	sync.Mutex
+	writeMu sync.Mutex
+	enabled bool
+	writer  io.Writer
+	pending map[string]chan accountManagerStdioAuthResponse
+	nextID  uint64
+}{pending: map[string]chan accountManagerStdioAuthResponse{}}
 
 type HttpAPI_Plugin struct {
 	mu           sync.Mutex
@@ -35,12 +87,16 @@ type HttpAPI_Plugin struct {
 	loadedAt     time.Time
 	lastLoadErr  string
 	lastModified time.Time
+	pendingStop  bool
+	verifyLimits map[string]accountManagerVerifyRateLimit
+	Shutdown     func()
 }
 
 type accountManagerConfig struct {
 	Version        string           `json:"version"`
 	Encryption     encryptionConfig `json:"encryption"`
 	PasswordPolicy passwordPolicy   `json:"password_policy"`
+	MCP            mcpConfig        `json:"mcp"`
 	Accounts       []managedAccount `json:"accounts"`
 	Groups         []accountGroup   `json:"groups"`
 }
@@ -52,6 +108,22 @@ type encryptionConfig struct {
 type passwordPolicy struct {
 	MinLength             int  `json:"min_length"`
 	RequireEnabledAccount bool `json:"require_enabled_account"`
+}
+
+type mcpConfig struct {
+	Read   bool `json:"read"`
+	Write  bool `json:"write"`
+	Delete bool `json:"delete"`
+}
+
+type mcpConfigPatch struct {
+	Read   *bool `json:"read"`
+	Write  *bool `json:"write"`
+	Delete *bool `json:"delete"`
+}
+
+type accountManagerSettingsRequest struct {
+	MCP *mcpConfigPatch `json:"mcp"`
 }
 
 type managedAccount struct {
@@ -70,6 +142,7 @@ type managedAccount struct {
 	UpdatedAt         string             `json:"updated_at,omitempty"`
 	LastLoginAt       string             `json:"last_login_at,omitempty"`
 	Permissions       []pluginPermission `json:"permissions"`
+	APIKeys           []accountAPIKey    `json:"api_keys,omitempty"`
 	Metadata          map[string]any     `json:"metadata,omitempty"`
 }
 
@@ -88,27 +161,49 @@ type publicAccount struct {
 	UpdatedAt         string             `json:"updated_at,omitempty"`
 	LastLoginAt       string             `json:"last_login_at,omitempty"`
 	Permissions       []pluginPermission `json:"permissions"`
+	APIKeys           []publicAPIKey     `json:"api_keys,omitempty"`
 	Metadata          map[string]any     `json:"metadata,omitempty"`
 }
 
+type accountAPIKey struct {
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Prefix     string `json:"prefix"`
+	KeyHash    string `json:"key_hash"`
+	Enabled    bool   `json:"enabled"`
+	CreatedAt  string `json:"created_at,omitempty"`
+	LastUsedAt string `json:"last_used_at,omitempty"`
+}
+
+type publicAPIKey struct {
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Prefix     string `json:"prefix"`
+	Enabled    bool   `json:"enabled"`
+	CreatedAt  string `json:"created_at,omitempty"`
+	LastUsedAt string `json:"last_used_at,omitempty"`
+}
+
 type pluginPermission struct {
-	PluginID   string   `json:"plugin_id"`
-	PluginName string   `json:"plugin_name,omitempty"`
-	Enabled    bool     `json:"enabled"`
-	Scopes     []string `json:"scopes"`
-	Note       string   `json:"note,omitempty"`
-	UpdatedAt  string   `json:"updated_at,omitempty"`
+	PluginID   string         `json:"plugin_id"`
+	PluginName string         `json:"plugin_name,omitempty"`
+	Enabled    bool           `json:"enabled"`
+	Scopes     []string       `json:"scopes"`
+	Note       string         `json:"note,omitempty"`
+	Settings   map[string]any `json:"settings,omitempty"`
+	UpdatedAt  string         `json:"updated_at,omitempty"`
 }
 
 type accountGroup struct {
-	ID          string             `json:"id"`
-	Name        string             `json:"name"`
-	Enabled     bool               `json:"enabled"`
-	Note        string             `json:"note,omitempty"`
-	Permissions []pluginPermission `json:"permissions"`
-	CreatedAt   string             `json:"created_at,omitempty"`
-	UpdatedAt   string             `json:"updated_at,omitempty"`
-	Metadata    map[string]any     `json:"metadata,omitempty"`
+	ID           string             `json:"id"`
+	Name         string             `json:"name"`
+	Enabled      bool               `json:"enabled"`
+	Note         string             `json:"note,omitempty"`
+	WorkspaceIDs []string           `json:"workspace_ids"`
+	Permissions  []pluginPermission `json:"permissions"`
+	CreatedAt    string             `json:"created_at,omitempty"`
+	UpdatedAt    string             `json:"updated_at,omitempty"`
+	Metadata     map[string]any     `json:"metadata,omitempty"`
 }
 
 type accountRequest struct {
@@ -126,25 +221,45 @@ type accountRequest struct {
 }
 
 type groupRequest struct {
-	ID          string             `json:"id"`
-	Name        string             `json:"name"`
-	Enabled     *bool              `json:"enabled"`
-	Note        *string            `json:"note"`
-	Permissions []pluginPermission `json:"permissions"`
-	Metadata    map[string]any     `json:"metadata"`
+	ID           string             `json:"id"`
+	Name         string             `json:"name"`
+	Enabled      *bool              `json:"enabled"`
+	Note         *string            `json:"note"`
+	WorkspaceIDs []string           `json:"workspace_ids"`
+	Permissions  []pluginPermission `json:"permissions"`
+	Metadata     map[string]any     `json:"metadata"`
 }
 
 type passwordUpdateRequest struct {
 	Password string `json:"password"`
 }
 
+type passwordSelfUpdateRequest struct {
+	CurrentPassword string `json:"current_password"`
+	OldPassword     string `json:"old_password"`
+	Password        string `json:"password"`
+	NewPassword     string `json:"new_password"`
+}
+
+type apiKeyIssueRequest struct {
+	Name string `json:"name"`
+}
+
 type verifyRequest struct {
 	Account  string `json:"account"`
 	Username string `json:"username"`
 	Password string `json:"password"`
+	APIKey   string `json:"api_key"`
+	Key      string `json:"key"`
 	Project  string `json:"project"`
 	PluginID string `json:"plugin_id"`
 	Scope    string `json:"scope"`
+}
+
+type accountManagerVerifyRateLimit struct {
+	Failures     int
+	ResetAt      time.Time
+	BlockedUntil time.Time
 }
 
 type accountManagerHostAuth struct {
@@ -176,7 +291,96 @@ type accountManagerHostAuthRequest struct {
 	ExpiresAt string `json:"expires_at"`
 }
 
+type accountManagerStdioAuthResponse struct {
+	ID     string                    `json:"id"`
+	Result accountManagerStdioResult `json:"result"`
+	Error  any                       `json:"error,omitempty"`
+}
+
+type accountManagerAuthIntrospection struct {
+	Success       bool     `json:"success"`
+	Authenticated bool     `json:"authenticated"`
+	Account       string   `json:"account"`
+	Project       string   `json:"project"`
+	DisplayName   string   `json:"display_name"`
+	Roles         []string `json:"roles"`
+	Permissions   []string `json:"permissions"`
+	Source        string   `json:"source"`
+	ExpiresAt     string   `json:"expires_at"`
+	TokenType     string   `json:"token_type"`
+}
+
+type accountManagerStdioResult struct {
+	accountManagerAuthIntrospection
+	Token        string `json:"token"`
+	SegmentCount int    `json:"segment_count"`
+}
+
+func StartStdioAuthClient(input io.Reader, output io.Writer) {
+	defer recoverAccountManagerPanic("StartStdioAuthClient")
+	if input == nil || output == nil {
+		return
+	}
+	accountManagerStdioAuth.Lock()
+	if accountManagerStdioAuth.enabled {
+		accountManagerStdioAuth.Unlock()
+		return
+	}
+	accountManagerStdioAuth.enabled = true
+	accountManagerStdioAuth.writer = output
+	if accountManagerStdioAuth.pending == nil {
+		accountManagerStdioAuth.pending = map[string]chan accountManagerStdioAuthResponse{}
+	}
+	accountManagerStdioAuth.Unlock()
+
+	go readStdioAuthResponses(input)
+}
+
+func readStdioAuthResponses(input io.Reader) {
+	defer recoverAccountManagerPanic("readStdioAuthResponses")
+	scanner := bufio.NewScanner(input)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		var resp accountManagerStdioAuthResponse
+		if err := json.Unmarshal([]byte(line), &resp); err != nil || strings.TrimSpace(resp.ID) == "" {
+			continue
+		}
+		accountManagerStdioAuth.Lock()
+		ch := accountManagerStdioAuth.pending[resp.ID]
+		if ch != nil {
+			delete(accountManagerStdioAuth.pending, resp.ID)
+		}
+		accountManagerStdioAuth.Unlock()
+		if ch != nil {
+			ch <- resp
+			close(ch)
+		}
+	}
+	accountManagerStdioAuth.Lock()
+	accountManagerStdioAuth.enabled = false
+	for id, ch := range accountManagerStdioAuth.pending {
+		delete(accountManagerStdioAuth.pending, id)
+		close(ch)
+	}
+	accountManagerStdioAuth.Unlock()
+}
+
+func accountManagerStdioAuthEnabled() bool {
+	accountManagerStdioAuth.Lock()
+	defer accountManagerStdioAuth.Unlock()
+	return accountManagerStdioAuth.enabled && accountManagerStdioAuth.writer != nil
+}
+
 func (h *HttpAPI_Plugin) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	defer func() {
+		if recoverAccountManagerPanic("ServeHTTP") != nil {
+			writeAccountManagerJSONBytes(w, accountManagerRecoveredJSON("ServeHTTP"))
+		}
+	}()
 	applyAccountManagerCORS(w)
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(http.StatusNoContent)
@@ -191,12 +395,18 @@ func (h *HttpAPI_Plugin) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
 	response := h.Process(w, r, path, bodyBytes)
 	writeAccountManagerJSONBytes(w, response)
+	if h.consumePendingServiceShutdown() {
+		if flusher, ok := w.(http.Flusher); ok {
+			flusher.Flush()
+		}
+		h.requestServiceShutdown()
+	}
 }
 
 func applyAccountManagerCORS(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Authentication, Accept")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Authentication, X-API-Key, Accept")
 	w.Header().Set("Access-Control-Max-Age", "600")
 }
 
@@ -217,27 +427,224 @@ func accountManagerMethodNotAllowedResponse() []byte {
 	return mustAccountManagerJSON(map[string]any{"success": false, "error": "method not allowed"})
 }
 
-func (h *HttpAPI_Plugin) Process(_ http.ResponseWriter, r *http.Request, path []string, body []byte) []byte {
+func accountManagerUnauthorizedResponse(w http.ResponseWriter) []byte {
+	if w != nil {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusUnauthorized)
+	}
+	return mustAccountManagerJSON(map[string]any{"success": false, "error": "unauthorized", "code": "AUTH_REQUIRED"})
+}
+
+func accountManagerRequiresAuth(path []string) bool {
+	if len(path) == 0 {
+		return true
+	}
+	switch strings.ToLower(path[0]) {
+	case "auth":
+		return true
+	case "account":
+		return true
+	case "plugins":
+		return true
+	case "plugin":
+		return !accountManagerIsPluginStatusPath(path) && !accountManagerIsPluginAuthPath(path)
+	default:
+		return true
+	}
+}
+
+func accountManagerIsVerifyPath(path []string) bool {
+	if len(path) == 0 {
+		return false
+	}
+	if strings.EqualFold(path[0], "auth") {
+		return len(path) == 1 || strings.EqualFold(path[1], "verify")
+	}
+	return len(path) > 1 && strings.EqualFold(path[0], "account") && strings.EqualFold(path[1], "verify")
+}
+
+func accountManagerIsPluginStatusPath(path []string) bool {
+	return len(path) > 0 && strings.EqualFold(path[0], "plugin") && (len(path) == 1 || strings.EqualFold(path[len(path)-1], "status"))
+}
+
+func accountManagerIsPluginAuthPath(path []string) bool {
+	return len(path) > 1 && strings.EqualFold(path[0], "plugin") && strings.EqualFold(path[1], "auth")
+}
+
+func (h *HttpAPI_Plugin) accountManagerHasRequestAuth(r *http.Request) bool {
+	session, ok := h.accountManagerRequestIntrospection(r)
+	return ok && session.Success && session.Authenticated
+}
+
+func (h *HttpAPI_Plugin) accountManagerRequestIntrospection(r *http.Request) (accountManagerAuthIntrospection, bool) {
+	if r == nil {
+		return accountManagerAuthIntrospection{}, false
+	}
+	token := accountManagerRequestAuthToken(r)
+	if token == "" {
+		return accountManagerAuthIntrospection{}, false
+	}
+	h.mu.Lock()
+	hostURL := h.hostAuth.HostURL
+	h.mu.Unlock()
+	session, ok := accountManagerIntrospectTokenWithHost(hostURL, token)
+	if !ok || !session.Success || !session.Authenticated {
+		return accountManagerAuthIntrospection{}, false
+	}
+	return session, true
+}
+
+func (h *HttpAPI_Plugin) accountManagerVerifyAuthBypassAllowed(path []string, r *http.Request) bool {
+	if !accountManagerIsVerifyPath(path) {
+		return false
+	}
+	return h.accountManagerRequestFromTrustedHost(r)
+}
+
+func (h *HttpAPI_Plugin) accountManagerRequestFromTrustedHost(r *http.Request) bool {
+	host := accountManagerRemoteHost(r)
+	if host == "" {
+		return false
+	}
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	if ip != nil {
+		if ip.IsLoopback() {
+			return true
+		}
+		if accountManagerIPBelongsToLocalInterface(ip) {
+			return true
+		}
+	}
+	h.mu.Lock()
+	hostAuthURL := h.hostAuth.HostURL
+	h.mu.Unlock()
+	trustedHost := accountManagerHostFromURL(hostAuthURL)
+	if trustedHost == "" {
+		return false
+	}
+	if strings.EqualFold(host, trustedHost) {
+		return true
+	}
+	trustedIP := net.ParseIP(trustedHost)
+	return ip != nil && trustedIP != nil && ip.Equal(trustedIP)
+}
+
+func accountManagerRemoteHost(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+	host, _, err := net.SplitHostPort(strings.TrimSpace(r.RemoteAddr))
+	if err == nil {
+		return strings.Trim(host, "[]")
+	}
+	return strings.Trim(strings.TrimSpace(r.RemoteAddr), "[]")
+}
+
+func accountManagerIPBelongsToLocalInterface(ip net.IP) bool {
+	if ip == nil {
+		return false
+	}
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return false
+	}
+	for _, addr := range addrs {
+		var candidate net.IP
+		switch value := addr.(type) {
+		case *net.IPNet:
+			candidate = value.IP
+		case *net.IPAddr:
+			candidate = value.IP
+		}
+		if candidate != nil && candidate.Equal(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+func accountManagerHostFromURL(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return ""
+	}
+	host := strings.TrimSpace(parsed.Host)
+	if host == "" {
+		return ""
+	}
+	if parsedHost, _, err := net.SplitHostPort(host); err == nil {
+		host = parsedHost
+	}
+	return strings.Trim(host, "[]")
+}
+
+func accountManagerRequestAuthToken(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+	if token := bearerTokenFromHeader(r.Header.Get("Authentication")); token != "" {
+		return token
+	}
+	if token := bearerTokenFromHeader(r.Header.Get("Authorization")); token != "" {
+		return token
+	}
+	for _, cookie := range r.Cookies() {
+		name := strings.ToLower(strings.TrimSpace(cookie.Name))
+		value := strings.TrimSpace(cookie.Value)
+		if value == "" {
+			continue
+		}
+		switch name {
+		case "agentic_auth_token", "auth_token", "authtoken", "token", "authentication", "authorization":
+			return value
+		}
+	}
+	return ""
+}
+
+func (h *HttpAPI_Plugin) Process(w http.ResponseWriter, r *http.Request, path []string, body []byte) (response []byte) {
+	defer func() {
+		if recoverAccountManagerPanic("Process") != nil {
+			response = accountManagerRecoveredJSON("Process")
+		}
+	}()
 	normalizedPath := normalizeAccountManagerAPIPath(path)
 	if len(normalizedPath) == 0 {
+		if !h.accountManagerHasRequestAuth(r) {
+			return accountManagerUnauthorizedResponse(w)
+		}
 		return h.handleCatalog()
+	}
+	if accountManagerRequiresAuth(normalizedPath) &&
+		!h.accountManagerVerifyAuthBypassAllowed(normalizedPath, r) &&
+		!h.accountManagerHasRequestAuth(r) {
+		return accountManagerUnauthorizedResponse(w)
 	}
 
 	switch normalizedPath[0] {
 	case "plugin":
-		return h.handlePluginAPI(r, normalizedPath[1:])
+		return h.handlePluginAPI(w, r, normalizedPath[1:])
 	case "account":
-		return h.handleAccountAliasAPI(r, normalizedPath[1:], body)
+		return h.handleAccountAliasAPI(w, r, normalizedPath[1:], body)
 	case "mcp":
 		return h.handleMCPAPI(r)
 	case "config":
 		return h.handleConfigAPI(r, body)
+	case "settings":
+		return h.handleSettingsAPI(r, body)
 	case "accounts":
 		return h.handleAccountsAPI(r, normalizedPath[1:], body)
 	case "groups":
 		return h.handleGroupsAPI(r, normalizedPath[1:], body)
 	case "auth":
-		return h.handleAuthAPI(r, normalizedPath[1:], body)
+		return h.handleAuthAPI(w, r, normalizedPath[1:], body)
 	case "plugins":
 		return h.handlePluginsAPI(r, normalizedPath[1:], body)
 	default:
@@ -288,9 +695,13 @@ func (h *HttpAPI_Plugin) handleCatalog() []byte {
 			{"path": "/api/account-manager/plugin/registration", "method": "GET", "description": "取得外掛註冊資訊"},
 			{"path": "/api/account-manager/plugin/auth", "method": "POST", "description": "接收主系統 TOKEN 並註冊帳號管理服務"},
 			{"path": "/api/account-manager/config", "method": "GET|PUT", "description": "讀寫帳號管理設定"},
+			{"path": "/api/account-manager/settings", "method": "GET|PUT", "description": "讀寫 Account Manager 功能設定"},
 			{"path": "/api/account-manager/accounts", "method": "GET|POST", "description": "列出或建立帳號"},
 			{"path": "/api/account-manager/accounts/{id}", "method": "GET|PUT|DELETE", "description": "讀取、修改或刪除帳號"},
 			{"path": "/api/account-manager/accounts/{id}/password", "method": "PUT", "description": "更新帳號密碼並以 AES 儲存"},
+			{"path": "/api/account-manager/auth/password", "method": "PUT", "description": "目前登入的 AccountManager 帳號變更自己的密碼"},
+			{"path": "/api/account-manager/accounts/{id}/api-keys", "method": "GET|POST", "description": "列出或核發帳號遠端 API 金鑰"},
+			{"path": "/api/account-manager/accounts/{id}/api-keys/{key_id}", "method": "DELETE", "description": "刪除帳號遠端 API 金鑰"},
 			{"path": "/api/account-manager/groups", "method": "GET|POST", "description": "列出或建立群組"},
 			{"path": "/api/account-manager/groups/{id}", "method": "GET|PUT|DELETE", "description": "讀取、修改或刪除群組"},
 			{"path": "/api/account-manager/groups/{id}/permissions", "method": "GET|PUT", "description": "讀寫群組可存取 plugin 權限"},
@@ -303,12 +714,20 @@ func (h *HttpAPI_Plugin) handleCatalog() []byte {
 	})
 }
 
-func (h *HttpAPI_Plugin) handlePluginAPI(r *http.Request, path []string) []byte {
+func (h *HttpAPI_Plugin) handlePluginAPI(w http.ResponseWriter, r *http.Request, path []string) (response []byte) {
+	defer func() {
+		if recoverAccountManagerPanic("handlePluginAPI") != nil {
+			response = accountManagerRecoveredJSON("handlePluginAPI")
+		}
+	}()
 	cmd := lastAccountManagerPathSegment(path, "status")
 	switch cmd {
 	case "status":
 		if r.Method != http.MethodGet {
 			return accountManagerMethodNotAllowedResponse()
+		}
+		if !h.accountManagerHasRequestAuth(r) {
+			return mustAccountManagerJSON(map[string]any{"success": true})
 		}
 		return mustAccountManagerJSON(map[string]any{"success": true, "plugin": h.statusPayload()})
 	case "load":
@@ -320,7 +739,7 @@ func (h *HttpAPI_Plugin) handlePluginAPI(r *http.Request, path []string) []byte 
 		if r.Method != http.MethodPost {
 			return accountManagerMethodNotAllowedResponse()
 		}
-		return h.authResponse(r)
+		return h.authResponse(w, r)
 	case "reload":
 		if r.Method != http.MethodPost {
 			return accountManagerMethodNotAllowedResponse()
@@ -341,25 +760,26 @@ func (h *HttpAPI_Plugin) handlePluginAPI(r *http.Request, path []string) []byte 
 		h.loadedAt = time.Time{}
 		h.lastLoadErr = ""
 		h.lastModified = time.Time{}
+		h.pendingStop = true
 		h.mu.Unlock()
 		return mustAccountManagerJSON(map[string]any{"success": true, "plugin": h.statusPayload()})
 	case "registration":
 		if r.Method != http.MethodGet {
 			return accountManagerMethodNotAllowedResponse()
 		}
-		return mustAccountManagerJSON(map[string]any{"success": true, "plugin": h.registrationPayload()})
+		return mustAccountManagerJSON(map[string]any{"success": true, "plugin": h.registrationPayload(r)})
 	default:
 		return h.handleCatalog()
 	}
 }
 
-func (h *HttpAPI_Plugin) handleAccountAliasAPI(r *http.Request, path []string, body []byte) []byte {
+func (h *HttpAPI_Plugin) handleAccountAliasAPI(w http.ResponseWriter, r *http.Request, path []string, body []byte) []byte {
 	if len(path) == 0 {
 		return h.handleCatalog()
 	}
 	switch strings.ToLower(path[0]) {
 	case "verify":
-		return h.handleAuthAPI(r, []string{"verify"}, body)
+		return h.handleAuthAPI(w, r, []string{"verify"}, body)
 	case "permissions":
 		return h.handlePluginsAPI(r, []string{"permissions"}, body)
 	default:
@@ -367,10 +787,35 @@ func (h *HttpAPI_Plugin) handleAccountAliasAPI(r *http.Request, path []string, b
 	}
 }
 
+func (h *HttpAPI_Plugin) consumePendingServiceShutdown() bool {
+	if h == nil {
+		return false
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	pending := h.pendingStop
+	h.pendingStop = false
+	return pending
+}
+
+func (h *HttpAPI_Plugin) requestServiceShutdown() {
+	if h == nil || h.Shutdown == nil {
+		return
+	}
+	shutdown := h.Shutdown
+	go shutdown()
+}
+
 func (h *HttpAPI_Plugin) handleMCPAPI(r *http.Request) []byte {
 	if r.Method != http.MethodGet && r.Method != http.MethodPost {
 		return accountManagerMethodNotAllowedResponse()
 	}
+	if err := h.ensureLoaded(); err != nil {
+		return mustAccountManagerJSON(map[string]any{"success": false, "error": err.Error()})
+	}
+	h.mu.Lock()
+	settings := h.config.MCP
+	h.mu.Unlock()
 	return mustAccountManagerJSON(map[string]any{
 		"success": true,
 		"mcp": map[string]any{
@@ -378,19 +823,55 @@ func (h *HttpAPI_Plugin) handleMCPAPI(r *http.Request) []byte {
 			"description":     "帳號、AES 密碼與跨 Plugin 權限管理工具。",
 			"version":         AccountManagerVersion,
 			"plugin_api_base": "/api/account-manager",
-			"tools": []map[string]any{
-				{"name": "account_manager.accounts.list", "method": "GET", "path": "/api/plugin/account-manager/api/account-manager/accounts", "description": "列出帳號與權限摘要。"},
-				{"name": "account_manager.accounts.save", "method": "POST|PUT|DELETE", "path": "/api/plugin/account-manager/api/account-manager/accounts", "description": "建立、更新或刪除帳號。"},
-				{"name": "account_manager.password.update", "method": "PUT", "path": "/api/plugin/account-manager/api/account-manager/accounts/{id}/password", "description": "以 AES-GCM 儲存新密碼。"},
-				{"name": "account_manager.auth.verify", "method": "POST", "path": "/api/plugin/account-manager/api/account-manager/auth/verify", "description": "驗證帳號、密碼與 plugin scope。"},
-				{"name": "account_manager.groups.save", "method": "POST|PUT|DELETE", "path": "/api/plugin/account-manager/api/account-manager/groups", "description": "建立、更新或刪除群組。"},
-				{"name": "account_manager.permissions.save", "method": "PUT", "path": "/api/plugin/account-manager/api/account-manager/groups/{id}/permissions", "description": "更新群組可存取 plugin 權限。"},
-			},
+			"enabled":         settings.Read || settings.Write || settings.Delete,
+			"access":          accountManagerMCPSettingsPayload(settings),
+			"tools":           accountManagerMCPTools(settings),
 		},
 	})
 }
 
-func (h *HttpAPI_Plugin) authResponse(r *http.Request) []byte {
+func accountManagerMCPTools(settings mcpConfig) []map[string]any {
+	tools := make([]map[string]any, 0, 14)
+	appendTool := func(access string, name string, method string, path string, description string) {
+		tools = append(tools, map[string]any{
+			"access": access, "name": name, "method": method, "path": path, "description": description,
+		})
+	}
+	if settings.Read {
+		appendTool("read", "account_manager.accounts.list", "GET", "/api/plugin/account-manager/api/account-manager/accounts", "列出帳號與權限摘要。")
+		appendTool("read", "account_manager.accounts.get", "GET", "/api/plugin/account-manager/api/account-manager/accounts/{id}", "讀取指定帳號與權限摘要。")
+		appendTool("read", "account_manager.groups.list", "GET", "/api/plugin/account-manager/api/account-manager/groups", "列出群組與卡片權限摘要。")
+		appendTool("read", "account_manager.groups.get", "GET", "/api/plugin/account-manager/api/account-manager/groups/{id}", "讀取指定群組。")
+		appendTool("read", "account_manager.permissions.get", "GET", "/api/plugin/account-manager/api/account-manager/groups/{id}/permissions", "讀取指定群組的卡片權限。")
+		appendTool("read", "account_manager.auth.verify", "POST", "/api/plugin/account-manager/api/account-manager/auth/verify", "驗證帳號、密碼與 plugin scope，不修改資料。")
+	}
+	if settings.Write {
+		appendTool("write", "account_manager.accounts.create", "POST", "/api/plugin/account-manager/api/account-manager/accounts", "建立帳號。")
+		appendTool("write", "account_manager.accounts.update", "PUT", "/api/plugin/account-manager/api/account-manager/accounts/{id}", "更新指定帳號。")
+		appendTool("write", "account_manager.password.update", "PUT", "/api/plugin/account-manager/api/account-manager/accounts/{id}/password", "以 AES-GCM 儲存新密碼。")
+		appendTool("write", "account_manager.groups.create", "POST", "/api/plugin/account-manager/api/account-manager/groups", "建立群組。")
+		appendTool("write", "account_manager.groups.update", "PUT", "/api/plugin/account-manager/api/account-manager/groups/{id}", "更新指定群組。")
+		appendTool("write", "account_manager.permissions.save", "PUT", "/api/plugin/account-manager/api/account-manager/groups/{id}/permissions", "更新群組可存取的卡片權限。")
+	}
+	if settings.Delete {
+		appendTool("delete", "account_manager.accounts.delete", "DELETE", "/api/plugin/account-manager/api/account-manager/accounts/{id}", "刪除指定帳號。")
+		appendTool("delete", "account_manager.groups.delete", "DELETE", "/api/plugin/account-manager/api/account-manager/groups/{id}", "刪除指定群組。")
+	}
+	return tools
+}
+
+func accountManagerMCPSettingsPayload(settings mcpConfig) map[string]any {
+	return map[string]any{
+		"read": settings.Read, "write": settings.Write, "delete": settings.Delete,
+	}
+}
+
+func (h *HttpAPI_Plugin) authResponse(w http.ResponseWriter, r *http.Request) (response []byte) {
+	defer func() {
+		if recoverAccountManagerPanic("authResponse") != nil {
+			response = accountManagerRecoveredJSON("authResponse")
+		}
+	}()
 	var req accountManagerHostAuthRequest
 	if r != nil && r.Body != nil {
 		_ = json.NewDecoder(r.Body).Decode(&req)
@@ -412,6 +893,9 @@ func (h *HttpAPI_Plugin) authResponse(r *http.Request) []byte {
 		}
 	}
 	hostURL := resolveAccountManagerHostURL(r, req)
+	if !accountManagerTokenValidWithHost(hostURL, token) {
+		return accountManagerUnauthorizedResponse(w)
+	}
 	auth := accountManagerHostAuth{
 		Token:     token,
 		TokenType: firstNonEmptyAccountManager(req.TokenType, "Bearer"),
@@ -490,13 +974,13 @@ func (h *HttpAPI_Plugin) registerAccountManagerWithHost(auth accountManagerHostA
 
 func accountManagerHostRegistrationPayload() map[string]any {
 	return map[string]any{
-		"plugin_id":      "account-manager",
-		"name":           "帳號管理",
-		"enabled":        true,
-		"port":           18186,
-		"method":         "POST",
-		"verify_api":     "/api/account/verify",
-		"permission_api": "/api/account/permissions",
+		"plugin_id":           "account-manager",
+		"name":                "帳號管理",
+		"enabled":             true,
+		"method":              "POST",
+		"verify_api":          "/api/account/verify",
+		"permission_api":      "/api/account/permissions",
+		"permission_settings": map[string]any{},
 	}
 }
 
@@ -511,53 +995,236 @@ func bearerTokenFromHeader(raw string) string {
 	return raw
 }
 
-func resolveAccountManagerHostURL(r *http.Request, req accountManagerHostAuthRequest) string {
-	for _, candidate := range []string{
-		os.Getenv("ACCOUNT_MANAGER_HOST_URL"),
-		req.HostURL,
-		req.BaseURL,
-		req.Origin,
-		req.Source,
-		headerURL(r, "X-Host-Url"),
-		headerURL(r, "X-Forwarded-Host"),
-		headerURL(r, "Origin"),
-		refererOrigin(r),
-	} {
-		if normalized := normalizeAccountManagerHostURL(candidate); normalized != "" {
-			return normalized
+func accountManagerTokenValidWithHost(hostURL string, token string) bool {
+	session, ok := accountManagerIntrospectTokenWithHost(hostURL, token)
+	return ok && session.Success && session.Authenticated
+}
+
+func accountManagerIntrospectTokenWithHost(hostURL string, token string) (accountManagerAuthIntrospection, bool) {
+	if accountManagerStdioAuthEnabled() {
+		if session, ok := accountManagerIntrospectTokenWithStdio(token); ok {
+			return session, true
 		}
+	}
+	return accountManagerIntrospectTokenWithHostHTTP(hostURL, token)
+}
+
+func accountManagerIntrospectTokenWithStdio(token string) (accountManagerAuthIntrospection, bool) {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return accountManagerAuthIntrospection{}, false
+	}
+	accountManagerStdioAuth.Lock()
+	if !accountManagerStdioAuth.enabled || accountManagerStdioAuth.writer == nil {
+		accountManagerStdioAuth.Unlock()
+		return accountManagerAuthIntrospection{}, false
+	}
+	id := fmt.Sprintf("auth-%d", atomic.AddUint64(&accountManagerStdioAuth.nextID, 1))
+	ch := make(chan accountManagerStdioAuthResponse, 1)
+	accountManagerStdioAuth.pending[id] = ch
+	writer := accountManagerStdioAuth.writer
+	accountManagerStdioAuth.Unlock()
+
+	payload := map[string]any{
+		"jsonrpc": "2.0",
+		"id":      id,
+		"method":  "auth.introspect",
+		"params": map[string]any{
+			"token": token,
+		},
+	}
+	data, err := json.Marshal(payload)
+	if err != nil {
+		accountManagerStdioAuth.Lock()
+		delete(accountManagerStdioAuth.pending, id)
+		accountManagerStdioAuth.Unlock()
+		return accountManagerAuthIntrospection{}, false
+	}
+	accountManagerStdioAuth.writeMu.Lock()
+	_, err = fmt.Fprintln(writer, string(data))
+	accountManagerStdioAuth.writeMu.Unlock()
+	if err != nil {
+		accountManagerStdioAuth.Lock()
+		delete(accountManagerStdioAuth.pending, id)
+		accountManagerStdioAuth.Unlock()
+		return accountManagerAuthIntrospection{}, false
+	}
+
+	select {
+	case resp, ok := <-ch:
+		if !ok || resp.Error != nil || !resp.Result.Success || !resp.Result.Authenticated {
+			return accountManagerAuthIntrospection{}, false
+		}
+		return resp.Result.accountManagerAuthIntrospection, true
+	case <-time.After(2 * time.Second):
+		accountManagerStdioAuth.Lock()
+		delete(accountManagerStdioAuth.pending, id)
+		accountManagerStdioAuth.Unlock()
+		return accountManagerAuthIntrospection{}, false
+	}
+}
+
+// EncodeExtendedJWTWithStdio 要求主系統以目前 MARS SDK 金鑰編碼 JWT。
+// Account Manager 只提供第二段 payload 與最多兩個 extension 明文，不接觸簽章或加密金鑰。
+func EncodeExtendedJWTWithStdio(jwtPayload map[string]any, jwtExtensions []map[string]any) (string, bool) {
+	if len(jwtPayload) == 0 || len(jwtExtensions) > 2 {
+		return "", false
+	}
+	accountManagerStdioAuth.Lock()
+	if !accountManagerStdioAuth.enabled || accountManagerStdioAuth.writer == nil {
+		accountManagerStdioAuth.Unlock()
+		return "", false
+	}
+	id := fmt.Sprintf("jwt-%d", atomic.AddUint64(&accountManagerStdioAuth.nextID, 1))
+	ch := make(chan accountManagerStdioAuthResponse, 1)
+	accountManagerStdioAuth.pending[id] = ch
+	writer := accountManagerStdioAuth.writer
+	accountManagerStdioAuth.Unlock()
+
+	request := map[string]any{
+		"jsonrpc": "2.0",
+		"id":      id,
+		"method":  "auth.token.encode",
+		"params": map[string]any{
+			"jwt_payload":    jwtPayload,
+			"jwt_extensions": jwtExtensions,
+		},
+	}
+	data, err := json.Marshal(request)
+	if err != nil {
+		accountManagerStdioAuth.Lock()
+		delete(accountManagerStdioAuth.pending, id)
+		accountManagerStdioAuth.Unlock()
+		return "", false
+	}
+	accountManagerStdioAuth.writeMu.Lock()
+	_, err = fmt.Fprintln(writer, string(data))
+	accountManagerStdioAuth.writeMu.Unlock()
+	if err != nil {
+		accountManagerStdioAuth.Lock()
+		delete(accountManagerStdioAuth.pending, id)
+		accountManagerStdioAuth.Unlock()
+		return "", false
+	}
+
+	select {
+	case resp, ok := <-ch:
+		if !ok || resp.Error != nil || !resp.Result.Success || strings.TrimSpace(resp.Result.Token) == "" {
+			return "", false
+		}
+		return strings.TrimSpace(resp.Result.Token), true
+	case <-time.After(2 * time.Second):
+		accountManagerStdioAuth.Lock()
+		delete(accountManagerStdioAuth.pending, id)
+		accountManagerStdioAuth.Unlock()
+		return "", false
+	}
+}
+
+func accountManagerIntrospectTokenWithHostHTTP(hostURL string, token string) (accountManagerAuthIntrospection, bool) {
+	hostURL = normalizeAccountManagerHostURL(hostURL)
+	token = strings.TrimSpace(token)
+	if hostURL == "" || token == "" {
+		return accountManagerAuthIntrospection{}, false
+	}
+	req, err := http.NewRequest(http.MethodGet, strings.TrimRight(hostURL, "/")+"/auth/introspect", nil)
+	if err != nil {
+		return accountManagerAuthIntrospection{}, false
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Authentication", "Bearer "+token)
+	client := &http.Client{Timeout: 2 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return accountManagerAuthIntrospection{}, false
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return accountManagerAuthIntrospection{}, false
+	}
+	data, err := io.ReadAll(io.LimitReader(resp.Body, 8192))
+	if err != nil {
+		return accountManagerAuthIntrospection{}, false
+	}
+	var payload accountManagerAuthIntrospection
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return accountManagerAuthIntrospection{}, false
+	}
+	return payload, payload.Success && payload.Authenticated
+}
+
+func resolveAccountManagerHostURL(r *http.Request, req accountManagerHostAuthRequest) string {
+	for _, raw := range []string{
+		os.Getenv("AGENTIC_HOST_URL"),
+		os.Getenv("ACCOUNT_MANAGER_HOST_URL"),
+		os.Getenv("AGENTIC_BASE_URL"),
+	} {
+		if candidate := accountManagerTrustedHostURL(raw, r); candidate != "" {
+			return candidate
+		}
+	}
+	for _, raw := range []string{req.HostURL, req.BaseURL} {
+		if candidate := accountManagerTrustedHostURL(raw, r); candidate != "" {
+			return candidate
+		}
+	}
+	return accountManagerRemoteAddrHostURL(r)
+}
+
+func accountManagerTrustedHostURL(raw string, r *http.Request) string {
+	candidate := normalizeAccountManagerHostURL(raw)
+	if candidate == "" || r == nil {
+		return ""
+	}
+	parsed, err := url.Parse(candidate)
+	if err != nil {
+		return ""
+	}
+	candidateHost := strings.TrimSpace(parsed.Hostname())
+	remoteHost := accountManagerRemoteHost(r)
+	if candidateHost == "" || remoteHost == "" {
+		return ""
+	}
+	if strings.EqualFold(candidateHost, remoteHost) {
+		return candidate
+	}
+	candidateIP := net.ParseIP(candidateHost)
+	remoteIP := net.ParseIP(remoteHost)
+	if candidateIP != nil && remoteIP != nil {
+		if candidateIP.Equal(remoteIP) || candidateIP.IsLoopback() && remoteIP.IsLoopback() {
+			return candidate
+		}
+	}
+	if strings.EqualFold(candidateHost, "localhost") && remoteIP != nil && remoteIP.IsLoopback() {
+		return candidate
+	}
+	if strings.EqualFold(remoteHost, "localhost") && candidateIP != nil && candidateIP.IsLoopback() {
+		return candidate
 	}
 	return ""
 }
 
-func headerURL(r *http.Request, name string) string {
+func accountManagerRemoteAddrHostURL(r *http.Request) string {
 	if r == nil {
 		return ""
 	}
-	value := strings.TrimSpace(r.Header.Get(name))
-	if value == "" {
+	remoteAddr := strings.TrimSpace(r.RemoteAddr)
+	if remoteAddr == "" {
 		return ""
 	}
-	if name == "X-Forwarded-Host" && !strings.Contains(value, "://") {
-		proto := firstNonEmptyAccountManager(r.Header.Get("X-Forwarded-Proto"), "http")
-		value = proto + "://" + strings.Split(value, ",")[0]
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		host = strings.Trim(remoteAddr, "[]")
 	}
-	return value
-}
-
-func refererOrigin(r *http.Request) string {
-	if r == nil {
+	host = strings.TrimSpace(host)
+	if host == "" {
 		return ""
 	}
-	raw := strings.TrimSpace(r.Header.Get("Referer"))
-	if raw == "" {
-		return ""
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
 	}
-	parsed, err := url.Parse(raw)
-	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
-		return ""
-	}
-	return parsed.Scheme + "://" + parsed.Host
+	return normalizeAccountManagerHostURL(scheme + "://" + host)
 }
 
 func normalizeAccountManagerHostURL(raw string) string {
@@ -575,7 +1242,12 @@ func normalizeAccountManagerHostURL(raw string) string {
 	return strings.TrimRight(parsed.Scheme+"://"+parsed.Host, "/")
 }
 
-func (h *HttpAPI_Plugin) handleConfigAPI(r *http.Request, body []byte) []byte {
+func (h *HttpAPI_Plugin) handleConfigAPI(r *http.Request, body []byte) (response []byte) {
+	defer func() {
+		if recoverAccountManagerPanic("handleConfigAPI") != nil {
+			response = accountManagerRecoveredJSON("handleConfigAPI")
+		}
+	}()
 	if r.Method == http.MethodGet {
 		if err := h.ensureLoaded(); err != nil {
 			return mustAccountManagerJSON(map[string]any{"success": false, "error": err.Error(), "plugin": h.statusPayload()})
@@ -608,7 +1280,61 @@ func (h *HttpAPI_Plugin) handleConfigAPI(r *http.Request, body []byte) []byte {
 	return accountManagerMethodNotAllowedResponse()
 }
 
-func (h *HttpAPI_Plugin) handleAccountsAPI(r *http.Request, path []string, body []byte) []byte {
+func (h *HttpAPI_Plugin) handleSettingsAPI(r *http.Request, body []byte) (response []byte) {
+	defer func() {
+		if recoverAccountManagerPanic("handleSettingsAPI") != nil {
+			response = accountManagerRecoveredJSON("handleSettingsAPI")
+		}
+	}()
+	if err := h.ensureLoaded(); err != nil {
+		return mustAccountManagerJSON(map[string]any{"success": false, "error": err.Error()})
+	}
+	if r.Method == http.MethodGet {
+		h.mu.Lock()
+		settings := h.config.MCP
+		h.mu.Unlock()
+		return mustAccountManagerJSON(map[string]any{
+			"success":  true,
+			"settings": map[string]any{"mcp": accountManagerMCPSettingsPayload(settings)},
+		})
+	}
+	if r.Method != http.MethodPut && r.Method != http.MethodPatch {
+		return accountManagerMethodNotAllowedResponse()
+	}
+	var req accountManagerSettingsRequest
+	if err := json.Unmarshal(body, &req); err != nil || req.MCP == nil {
+		return mustAccountManagerJSON(map[string]any{"success": false, "error": "invalid settings json"})
+	}
+	h.mu.Lock()
+	cfg := h.config
+	h.mu.Unlock()
+	if req.MCP.Read != nil {
+		cfg.MCP.Read = *req.MCP.Read
+	}
+	if req.MCP.Write != nil {
+		cfg.MCP.Write = *req.MCP.Write
+	}
+	if req.MCP.Delete != nil {
+		cfg.MCP.Delete = *req.MCP.Delete
+	}
+	if err := writeAccountManagerConfig(cfg); err != nil {
+		return mustAccountManagerJSON(map[string]any{"success": false, "error": err.Error()})
+	}
+	if err := h.loadConfig(true); err != nil {
+		return mustAccountManagerJSON(map[string]any{"success": false, "error": err.Error()})
+	}
+	return mustAccountManagerJSON(map[string]any{
+		"success":  true,
+		"settings": map[string]any{"mcp": accountManagerMCPSettingsPayload(cfg.MCP)},
+	})
+}
+
+func (h *HttpAPI_Plugin) handleAccountsAPI(r *http.Request, path []string, body []byte) (response []byte) {
+	defer func() {
+		if recoverAccountManagerPanic("handleAccountsAPI") != nil {
+			response = accountManagerRecoveredJSON("handleAccountsAPI")
+		}
+	}()
 	if err := h.ensureLoaded(); err != nil {
 		return mustAccountManagerJSON(map[string]any{"success": false, "error": err.Error(), "plugin": h.statusPayload()})
 	}
@@ -637,6 +1363,8 @@ func (h *HttpAPI_Plugin) handleAccountsAPI(r *http.Request, path []string, body 
 			return h.handleAccountPasswordAPI(r, id, body)
 		case "permissions":
 			return h.handleAccountPermissionsAPI(r, id, body)
+		case "api-keys", "keys":
+			return h.handleAccountAPIKeysAPI(r, id, path[2:], body)
 		default:
 			return mustAccountManagerJSON(map[string]any{"success": false, "error": "unknown account endpoint"})
 		}
@@ -680,7 +1408,42 @@ func (h *HttpAPI_Plugin) handleAccountPasswordAPI(r *http.Request, id string, bo
 	return mustAccountManagerJSON(map[string]any{"success": true, "account": account})
 }
 
-func (h *HttpAPI_Plugin) handleAccountPermissionsAPI(r *http.Request, id string, body []byte) []byte {
+func (h *HttpAPI_Plugin) handleSelfPasswordAPI(r *http.Request, body []byte) []byte {
+	if r.Method != http.MethodPut && r.Method != http.MethodPatch && r.Method != http.MethodPost {
+		return accountManagerMethodNotAllowedResponse()
+	}
+	if err := h.ensureLoaded(); err != nil {
+		return mustAccountManagerJSON(map[string]any{"success": false, "error": err.Error(), "plugin": h.statusPayload()})
+	}
+	session, ok := h.accountManagerRequestIntrospection(r)
+	if !ok || !session.Success || !session.Authenticated {
+		return mustAccountManagerJSON(map[string]any{"success": false, "error": "unauthorized", "code": "AUTH_REQUIRED"})
+	}
+	if !strings.EqualFold(strings.TrimSpace(session.Source), "account-manager") {
+		return mustAccountManagerJSON(map[string]any{"success": false, "error": "only account-manager users can change password here"})
+	}
+	var req passwordSelfUpdateRequest
+	if err := json.Unmarshal(body, &req); err != nil {
+		return mustAccountManagerJSON(map[string]any{"success": false, "error": "invalid password json"})
+	}
+	currentPassword := strings.TrimSpace(firstNonEmptyAccountManager(req.CurrentPassword, req.OldPassword))
+	newPassword := strings.TrimSpace(firstNonEmptyAccountManager(req.NewPassword, req.Password))
+	if currentPassword == "" || newPassword == "" {
+		return mustAccountManagerJSON(map[string]any{"success": false, "error": "current_password and new_password are required"})
+	}
+	account, err := h.updateOwnAccountPassword(session.Account, currentPassword, newPassword)
+	if err != nil {
+		return mustAccountManagerJSON(map[string]any{"success": false, "error": err.Error()})
+	}
+	return mustAccountManagerJSON(map[string]any{"success": true, "account": account})
+}
+
+func (h *HttpAPI_Plugin) handleAccountPermissionsAPI(r *http.Request, id string, body []byte) (response []byte) {
+	defer func() {
+		if recoverAccountManagerPanic("handleAccountPermissionsAPI") != nil {
+			response = accountManagerRecoveredJSON("handleAccountPermissionsAPI")
+		}
+	}()
 	if r.Method == http.MethodGet {
 		account, ok := h.getAccount(id)
 		if !ok {
@@ -708,7 +1471,55 @@ func (h *HttpAPI_Plugin) handleAccountPermissionsAPI(r *http.Request, id string,
 	return mustAccountManagerJSON(map[string]any{"success": true, "account": account, "permissions": account.Permissions})
 }
 
-func (h *HttpAPI_Plugin) handleGroupsAPI(r *http.Request, path []string, body []byte) []byte {
+func (h *HttpAPI_Plugin) handleAccountAPIKeysAPI(r *http.Request, id string, path []string, body []byte) (response []byte) {
+	defer func() {
+		if recoverAccountManagerPanic("handleAccountAPIKeysAPI") != nil {
+			response = accountManagerRecoveredJSON("handleAccountAPIKeysAPI")
+		}
+	}()
+	if len(path) == 0 {
+		switch r.Method {
+		case http.MethodGet:
+			keys, err := h.listAccountAPIKeys(id)
+			if err != nil {
+				return mustAccountManagerJSON(map[string]any{"success": false, "error": err.Error(), "id": id})
+			}
+			return mustAccountManagerJSON(map[string]any{"success": true, "id": id, "api_keys": keys})
+		case http.MethodPost:
+			var req apiKeyIssueRequest
+			if len(body) > 0 {
+				if err := json.Unmarshal(body, &req); err != nil {
+					return mustAccountManagerJSON(map[string]any{"success": false, "error": "invalid api key json", "id": id})
+				}
+			}
+			issued, key, err := h.issueAccountAPIKey(id, req.Name)
+			if err != nil {
+				return mustAccountManagerJSON(map[string]any{"success": false, "error": err.Error(), "id": id})
+			}
+			return mustAccountManagerJSON(map[string]any{"success": true, "id": id, "api_key": issued, "key": key})
+		default:
+			return accountManagerMethodNotAllowedResponse()
+		}
+	}
+	keyID := strings.TrimSpace(path[0])
+	if keyID == "" {
+		return mustAccountManagerJSON(map[string]any{"success": false, "error": "api key id is required", "id": id})
+	}
+	if r.Method != http.MethodDelete {
+		return accountManagerMethodNotAllowedResponse()
+	}
+	if err := h.deleteAccountAPIKey(id, keyID); err != nil {
+		return mustAccountManagerJSON(map[string]any{"success": false, "error": err.Error(), "id": id, "key_id": keyID})
+	}
+	return mustAccountManagerJSON(map[string]any{"success": true, "id": id, "key_id": keyID})
+}
+
+func (h *HttpAPI_Plugin) handleGroupsAPI(r *http.Request, path []string, body []byte) (response []byte) {
+	defer func() {
+		if recoverAccountManagerPanic("handleGroupsAPI") != nil {
+			response = accountManagerRecoveredJSON("handleGroupsAPI")
+		}
+	}()
 	if err := h.ensureLoaded(); err != nil {
 		return mustAccountManagerJSON(map[string]any{"success": false, "error": err.Error(), "plugin": h.statusPayload()})
 	}
@@ -761,7 +1572,12 @@ func (h *HttpAPI_Plugin) handleGroupsAPI(r *http.Request, path []string, body []
 	}
 }
 
-func (h *HttpAPI_Plugin) handleGroupPermissionsAPI(r *http.Request, id string, body []byte) []byte {
+func (h *HttpAPI_Plugin) handleGroupPermissionsAPI(r *http.Request, id string, body []byte) (response []byte) {
+	defer func() {
+		if recoverAccountManagerPanic("handleGroupPermissionsAPI") != nil {
+			response = accountManagerRecoveredJSON("handleGroupPermissionsAPI")
+		}
+	}()
 	if r.Method == http.MethodGet {
 		group, ok := h.getGroup(id)
 		if !ok {
@@ -789,17 +1605,30 @@ func (h *HttpAPI_Plugin) handleGroupPermissionsAPI(r *http.Request, id string, b
 	return mustAccountManagerJSON(map[string]any{"success": true, "group": group, "permissions": group.Permissions})
 }
 
-func (h *HttpAPI_Plugin) handleAuthAPI(r *http.Request, path []string, body []byte) []byte {
+func (h *HttpAPI_Plugin) handleAuthAPI(w http.ResponseWriter, r *http.Request, path []string, body []byte) (response []byte) {
+	defer func() {
+		if recoverAccountManagerPanic("handleAuthAPI") != nil {
+			response = accountManagerRecoveredJSON("handleAuthAPI")
+		}
+	}()
 	if len(path) == 0 || strings.EqualFold(path[0], "verify") {
 		if r.Method != http.MethodPost {
 			return accountManagerMethodNotAllowedResponse()
 		}
-		return h.verifyCredentials(body)
+		return h.verifyCredentials(w, r, body)
+	}
+	if strings.EqualFold(path[0], "password") {
+		return h.handleSelfPasswordAPI(r, body)
 	}
 	return mustAccountManagerJSON(map[string]any{"success": false, "error": "unknown auth endpoint"})
 }
 
-func (h *HttpAPI_Plugin) handlePluginsAPI(r *http.Request, path []string, body []byte) []byte {
+func (h *HttpAPI_Plugin) handlePluginsAPI(r *http.Request, path []string, body []byte) (response []byte) {
+	defer func() {
+		if recoverAccountManagerPanic("handlePluginsAPI") != nil {
+			response = accountManagerRecoveredJSON("handlePluginsAPI")
+		}
+	}()
 	if len(path) == 0 || !strings.EqualFold(path[0], "permissions") {
 		return h.handleCatalog()
 	}
@@ -807,13 +1636,19 @@ func (h *HttpAPI_Plugin) handlePluginsAPI(r *http.Request, path []string, body [
 		return mustAccountManagerJSON(map[string]any{"success": false, "error": err.Error(), "plugin": h.statusPayload()})
 	}
 	if r.Method == http.MethodGet {
-		accountID := strings.TrimSpace(r.URL.Query().Get("account_id"))
+		accountID := firstNonEmptyAccountManager(
+			r.URL.Query().Get("account_id"),
+			r.URL.Query().Get("account"),
+			r.URL.Query().Get("username"),
+			r.URL.Query().Get("user"),
+		)
 		if accountID != "" {
 			account, ok := h.getAccount(accountID)
 			if !ok {
 				return mustAccountManagerJSON(map[string]any{"success": false, "error": "account not found", "id": accountID})
 			}
-			return mustAccountManagerJSON(map[string]any{"success": true, "account": toPublicAccount(account), "permissions": h.effectivePermissions(account)})
+			permissions := h.effectivePermissions(account)
+			return mustAccountManagerJSON(accountPermissionPayload(account, permissions, h.effectiveWorkspaceIDs(account), "", true, pluginPermission{}))
 		}
 		return mustAccountManagerJSON(map[string]any{"success": true, "accounts": h.listAccounts(r)})
 	}
@@ -822,22 +1657,34 @@ func (h *HttpAPI_Plugin) handlePluginsAPI(r *http.Request, path []string, body [
 		if err := json.Unmarshal(body, &req); err != nil {
 			return mustAccountManagerJSON(map[string]any{"success": false, "error": "invalid permission verify json"})
 		}
-		account, ok := h.findAccountByUsername(req.Username)
+		username := firstNonEmptyAccountManager(req.Account, req.Username)
+		var account managedAccount
+		var ok bool
+		apiKey := strings.TrimSpace(firstNonEmptyAccountManager(req.APIKey, req.Key))
+		if apiKey != "" {
+			account, ok = h.findAccountByAPIKey(apiKey)
+			if ok && username != "" && !strings.EqualFold(account.Username, username) && !strings.EqualFold(account.ID, username) {
+				return mustAccountManagerJSON(map[string]any{"success": true, "allowed": false, "reason": "api key account mismatch"})
+			}
+		} else {
+			account, ok = h.findAccountByUsername(username)
+		}
 		if !ok {
 			return mustAccountManagerJSON(map[string]any{"success": true, "allowed": false, "reason": "account not found"})
 		}
 		allowed, matched := h.accountAllowsPlugin(account, req.PluginID, req.Scope)
-		return mustAccountManagerJSON(map[string]any{
-			"success":    true,
-			"allowed":    allowed,
-			"account":    toPublicAccount(account),
-			"permission": matched,
-		})
+		permissions := h.effectivePermissions(account)
+		return mustAccountManagerJSON(accountPermissionPayload(account, permissions, h.effectiveWorkspaceIDs(account), req.PluginID, allowed, matched))
 	}
 	return accountManagerMethodNotAllowedResponse()
 }
 
-func (h *HttpAPI_Plugin) loadResponse() []byte {
+func (h *HttpAPI_Plugin) loadResponse() (response []byte) {
+	defer func() {
+		if recoverAccountManagerPanic("loadResponse") != nil {
+			response = accountManagerRecoveredJSON("loadResponse")
+		}
+	}()
 	if err := h.loadConfig(true); err != nil {
 		h.mu.Lock()
 		h.lastLoadErr = err.Error()
@@ -851,7 +1698,12 @@ func (h *HttpAPI_Plugin) ensureLoaded() error {
 	return h.loadConfig(false)
 }
 
-func (h *HttpAPI_Plugin) loadConfig(force bool) error {
+func (h *HttpAPI_Plugin) loadConfig(force bool) (err error) {
+	defer func() {
+		if recoverAccountManagerPanic("loadConfig") != nil {
+			err = accountManagerRecoveredError("loadConfig")
+		}
+	}()
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	stat, statErr := os.Stat(AccountManagerConfigPath)
@@ -894,6 +1746,7 @@ func (h *HttpAPI_Plugin) statusPayload() map[string]any {
 		"last_modified": optionalAccountManagerRFC3339(h.lastModified),
 		"account_count": len(h.accounts),
 		"group_count":   len(h.groups),
+		"mcp":           accountManagerMCPSettingsPayload(h.config.MCP),
 		"host_auth":     accountManagerHostAuthStatus(h.hostAuth),
 	}
 }
@@ -914,20 +1767,21 @@ func accountManagerHostAuthStatus(auth accountManagerHostAuth) map[string]any {
 	}
 }
 
-func (h *HttpAPI_Plugin) registrationPayload() map[string]any {
+func (h *HttpAPI_Plugin) registrationPayload(_ *http.Request) map[string]any {
 	return map[string]any{
-		"id":              "account-manager",
-		"name":            "帳號管理",
-		"version":         AccountManagerVersion,
-		"type":            "service",
-		"auto_start":      true,
-		"service":         "account-manager-service",
-		"service_url":     "http://127.0.0.1:18186",
-		"api_base":        "/api/plugin/account-manager",
-		"plugin_api_base": "/api/account-manager",
-		"routes":          []string{"/api/account-manager", "/api/account"},
-		"mcp_url":         "http://127.0.0.1:18186/mcp",
-		"website_path":    "./website/account-manager/index.html",
+		"id":                  "account-manager",
+		"name":                "帳號管理",
+		"version":             AccountManagerVersion,
+		"type":                "service",
+		"auto_start":          true,
+		"service":             "account-manager-service",
+		"service_url":         "http://127.0.0.1:18186",
+		"api_base":            "/api/plugin/account-manager",
+		"plugin_api_base":     "/api/account-manager",
+		"routes":              []string{"/api/account-manager", "/api/account"},
+		"mcp_url":             "http://127.0.0.1:18186/mcp",
+		"website_path":        "./website/account-manager/index.html",
+		"permission_settings": map[string]any{},
 		"runtime": map[string]any{
 			"auth":         "/api/account-manager/plugin/auth",
 			"load":         "/api/account-manager/plugin/load",
@@ -960,6 +1814,7 @@ func (h *HttpAPI_Plugin) publicConfigLocked() map[string]any {
 		"version":         h.config.Version,
 		"encryption":      map[string]any{"key_set": strings.TrimSpace(h.config.Encryption.Key) != ""},
 		"password_policy": h.config.PasswordPolicy,
+		"mcp":             accountManagerMCPSettingsPayload(h.config.MCP),
 		"accounts":        accounts,
 		"groups":          h.config.Groups,
 	}
@@ -1009,9 +1864,14 @@ func (h *HttpAPI_Plugin) listAccounts(r *http.Request) []publicAccount {
 		query = strings.ToLower(strings.TrimSpace(r.URL.Query().Get("q")))
 	}
 	h.mu.Lock()
-	defer h.mu.Unlock()
-	accounts := make([]publicAccount, 0, len(h.accounts))
+	snapshot := make([]managedAccount, 0, len(h.accounts))
 	for _, account := range h.accounts {
+		snapshot = append(snapshot, account)
+	}
+	h.mu.Unlock()
+
+	accounts := make([]publicAccount, 0, len(snapshot))
+	for _, account := range snapshot {
 		if query != "" {
 			haystack := strings.ToLower(strings.Join([]string{account.ID, account.Username, account.DisplayName, account.Email, account.Role}, " "))
 			if !strings.Contains(haystack, query) {
@@ -1033,7 +1893,12 @@ func (h *HttpAPI_Plugin) getAccount(id string) (managedAccount, bool) {
 	return account, ok
 }
 
-func (h *HttpAPI_Plugin) createAccount(body []byte) (publicAccount, error) {
+func (h *HttpAPI_Plugin) createAccount(body []byte) (result publicAccount, err error) {
+	defer func() {
+		if recoverAccountManagerPanic("createAccount") != nil {
+			err = accountManagerRecoveredError("createAccount")
+		}
+	}()
 	var req accountRequest
 	if err := json.Unmarshal(body, &req); err != nil {
 		return publicAccount{}, errors.New("invalid account json")
@@ -1072,10 +1937,16 @@ func (h *HttpAPI_Plugin) createAccount(body []byte) (publicAccount, error) {
 		return publicAccount{}, err
 	}
 	_ = h.loadConfig(true)
+	h.clearAccountManagerVerifyFailuresForAccounts(account.ID, account.Username)
 	return toPublicAccount(account), nil
 }
 
-func (h *HttpAPI_Plugin) updateAccount(id string, body []byte) (publicAccount, error) {
+func (h *HttpAPI_Plugin) updateAccount(id string, body []byte) (result publicAccount, err error) {
+	defer func() {
+		if recoverAccountManagerPanic("updateAccount") != nil {
+			err = accountManagerRecoveredError("updateAccount")
+		}
+	}()
 	var req accountRequest
 	if err := json.Unmarshal(body, &req); err != nil {
 		return publicAccount{}, errors.New("invalid account json")
@@ -1123,10 +1994,16 @@ func (h *HttpAPI_Plugin) updateAccount(id string, body []byte) (publicAccount, e
 		return publicAccount{}, err
 	}
 	_ = h.loadConfig(true)
+	h.clearAccountManagerVerifyFailuresForAccounts(existing.ID, existing.Username, account.ID, account.Username)
 	return toPublicAccount(account), nil
 }
 
-func (h *HttpAPI_Plugin) updateAccountPassword(id string, password string) (publicAccount, error) {
+func (h *HttpAPI_Plugin) updateAccountPassword(id string, password string) (result publicAccount, err error) {
+	defer func() {
+		if recoverAccountManagerPanic("updateAccountPassword") != nil {
+			err = accountManagerRecoveredError("updateAccountPassword")
+		}
+	}()
 	password = strings.TrimSpace(password)
 	if err := validatePasswordPolicy(password, h.passwordPolicy()); err != nil {
 		return publicAccount{}, err
@@ -1153,10 +2030,50 @@ func (h *HttpAPI_Plugin) updateAccountPassword(id string, password string) (publ
 		return publicAccount{}, err
 	}
 	_ = h.loadConfig(true)
+	h.clearAccountManagerVerifyFailuresForAccounts(account.ID, account.Username)
 	return toPublicAccount(account), nil
 }
 
-func (h *HttpAPI_Plugin) updateAccountPermissions(id string, permissions []pluginPermission) (publicAccount, error) {
+func (h *HttpAPI_Plugin) updateOwnAccountPassword(accountID string, currentPassword string, newPassword string) (result publicAccount, err error) {
+	defer func() {
+		if recoverAccountManagerPanic("updateOwnAccountPassword") != nil {
+			err = accountManagerRecoveredError("updateOwnAccountPassword")
+		}
+	}()
+	accountID = strings.TrimSpace(accountID)
+	currentPassword = strings.TrimSpace(currentPassword)
+	newPassword = strings.TrimSpace(newPassword)
+	if accountID == "" {
+		return publicAccount{}, errors.New("account is required")
+	}
+	if currentPassword == "" {
+		return publicAccount{}, errors.New("current password is required")
+	}
+	if err := validatePasswordPolicy(newPassword, h.passwordPolicy()); err != nil {
+		return publicAccount{}, err
+	}
+	h.mu.Lock()
+	account, ok := h.findAccountLocked(accountID)
+	h.mu.Unlock()
+	if !ok {
+		return publicAccount{}, errors.New("account not found")
+	}
+	decrypted, err := decryptPassword(account.PasswordAES, h.encryptionKey())
+	if err != nil {
+		return publicAccount{}, errors.New("current password verification failed")
+	}
+	if subtle.ConstantTimeCompare([]byte(decrypted), []byte(currentPassword)) != 1 {
+		return publicAccount{}, errors.New("current password verification failed")
+	}
+	return h.updateAccountPassword(account.ID, newPassword)
+}
+
+func (h *HttpAPI_Plugin) updateAccountPermissions(id string, permissions []pluginPermission) (result publicAccount, err error) {
+	defer func() {
+		if recoverAccountManagerPanic("updateAccountPermissions") != nil {
+			err = accountManagerRecoveredError("updateAccountPermissions")
+		}
+	}()
 	now := time.Now().Format(time.RFC3339)
 	permissions = normalizePluginPermissions(permissions, now)
 	h.mu.Lock()
@@ -1178,7 +2095,107 @@ func (h *HttpAPI_Plugin) updateAccountPermissions(id string, permissions []plugi
 	return toPublicAccount(account), nil
 }
 
-func (h *HttpAPI_Plugin) deleteAccount(id string) error {
+func (h *HttpAPI_Plugin) listAccountAPIKeys(id string) ([]publicAPIKey, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	account, ok := h.findAccountLocked(id)
+	if !ok {
+		return nil, errors.New("account not found")
+	}
+	return publicAPIKeys(account.APIKeys), nil
+}
+
+func (h *HttpAPI_Plugin) issueAccountAPIKey(id string, name string) (result publicAPIKey, keyValue string, err error) {
+	defer func() {
+		if recoverAccountManagerPanic("issueAccountAPIKey") != nil {
+			err = accountManagerRecoveredError("issueAccountAPIKey")
+		}
+	}()
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return publicAPIKey{}, "", errors.New("api key name is required")
+	}
+	key, prefix, hash, err := generateAccountAPIKey()
+	if err != nil {
+		return publicAPIKey{}, "", err
+	}
+	now := time.Now().Format(time.RFC3339)
+	apiKey := accountAPIKey{
+		ID:        sanitizeAccountManagerID(name),
+		Name:      name,
+		Prefix:    prefix,
+		KeyHash:   hash,
+		Enabled:   true,
+		CreatedAt: now,
+	}
+	if apiKey.ID == "" {
+		apiKey.ID = "key"
+	}
+	h.mu.Lock()
+	account, ok := h.findAccountLocked(id)
+	if !ok {
+		h.mu.Unlock()
+		return publicAPIKey{}, "", errors.New("account not found")
+	}
+	apiKey.ID = uniqueAccountAPIKeyID(account.APIKeys, apiKey.ID)
+	account.APIKeys = append(normalizeAccountAPIKeys(account.APIKeys), apiKey)
+	account.UpdatedAt = now
+	h.accounts[account.ID] = account
+	h.config.Accounts = accountsMapToSlice(h.accounts)
+	cfg := h.config
+	h.mu.Unlock()
+	if err := writeAccountManagerConfig(cfg); err != nil {
+		return publicAPIKey{}, "", err
+	}
+	_ = h.loadConfig(true)
+	return toPublicAPIKey(apiKey), key, nil
+}
+
+func (h *HttpAPI_Plugin) deleteAccountAPIKey(id string, keyID string) (err error) {
+	defer func() {
+		if recoverAccountManagerPanic("deleteAccountAPIKey") != nil {
+			err = accountManagerRecoveredError("deleteAccountAPIKey")
+		}
+	}()
+	keyID = strings.TrimSpace(keyID)
+	h.mu.Lock()
+	account, ok := h.findAccountLocked(id)
+	if !ok {
+		h.mu.Unlock()
+		return errors.New("account not found")
+	}
+	next := make([]accountAPIKey, 0, len(account.APIKeys))
+	removed := false
+	for _, key := range account.APIKeys {
+		if strings.EqualFold(key.ID, keyID) {
+			removed = true
+			continue
+		}
+		next = append(next, key)
+	}
+	if !removed {
+		h.mu.Unlock()
+		return errors.New("api key not found")
+	}
+	account.APIKeys = next
+	account.UpdatedAt = time.Now().Format(time.RFC3339)
+	h.accounts[account.ID] = account
+	h.config.Accounts = accountsMapToSlice(h.accounts)
+	cfg := h.config
+	h.mu.Unlock()
+	if err := writeAccountManagerConfig(cfg); err != nil {
+		return err
+	}
+	_ = h.loadConfig(true)
+	return nil
+}
+
+func (h *HttpAPI_Plugin) deleteAccount(id string) (err error) {
+	defer func() {
+		if recoverAccountManagerPanic("deleteAccount") != nil {
+			err = accountManagerRecoveredError("deleteAccount")
+		}
+	}()
 	h.mu.Lock()
 	account, ok := h.findAccountLocked(id)
 	if !ok {
@@ -1225,7 +2242,12 @@ func (h *HttpAPI_Plugin) getGroup(id string) (accountGroup, bool) {
 	return h.findGroupLocked(id)
 }
 
-func (h *HttpAPI_Plugin) createGroup(body []byte) (accountGroup, error) {
+func (h *HttpAPI_Plugin) createGroup(body []byte) (result accountGroup, err error) {
+	defer func() {
+		if recoverAccountManagerPanic("createGroup") != nil {
+			err = accountManagerRecoveredError("createGroup")
+		}
+	}()
 	var req groupRequest
 	if err := json.Unmarshal(body, &req); err != nil {
 		return accountGroup{}, errors.New("invalid group json")
@@ -1253,7 +2275,12 @@ func (h *HttpAPI_Plugin) createGroup(body []byte) (accountGroup, error) {
 	return group, nil
 }
 
-func (h *HttpAPI_Plugin) updateGroup(id string, body []byte) (accountGroup, error) {
+func (h *HttpAPI_Plugin) updateGroup(id string, body []byte) (result accountGroup, err error) {
+	defer func() {
+		if recoverAccountManagerPanic("updateGroup") != nil {
+			err = accountManagerRecoveredError("updateGroup")
+		}
+	}()
 	var req groupRequest
 	if err := json.Unmarshal(body, &req); err != nil {
 		return accountGroup{}, errors.New("invalid group json")
@@ -1284,7 +2311,12 @@ func (h *HttpAPI_Plugin) updateGroup(id string, body []byte) (accountGroup, erro
 	return group, nil
 }
 
-func (h *HttpAPI_Plugin) updateGroupPermissions(id string, permissions []pluginPermission) (accountGroup, error) {
+func (h *HttpAPI_Plugin) updateGroupPermissions(id string, permissions []pluginPermission) (result accountGroup, err error) {
+	defer func() {
+		if recoverAccountManagerPanic("updateGroupPermissions") != nil {
+			err = accountManagerRecoveredError("updateGroupPermissions")
+		}
+	}()
 	now := time.Now().Format(time.RFC3339)
 	permissions = normalizePluginPermissions(permissions, now)
 	h.mu.Lock()
@@ -1306,7 +2338,12 @@ func (h *HttpAPI_Plugin) updateGroupPermissions(id string, permissions []pluginP
 	return group, nil
 }
 
-func (h *HttpAPI_Plugin) deleteGroup(id string) error {
+func (h *HttpAPI_Plugin) deleteGroup(id string) (err error) {
+	defer func() {
+		if recoverAccountManagerPanic("deleteGroup") != nil {
+			err = accountManagerRecoveredError("deleteGroup")
+		}
+	}()
 	h.mu.Lock()
 	group, ok := h.findGroupLocked(id)
 	if !ok {
@@ -1360,6 +2397,11 @@ func groupFromRequest(req groupRequest, fallback accountGroup) (accountGroup, er
 	if req.Note != nil {
 		group.Note = strings.TrimSpace(*req.Note)
 	}
+	if req.WorkspaceIDs != nil {
+		group.WorkspaceIDs = normalizeAccountManagerWorkspaceIDs(req.WorkspaceIDs)
+	} else if len(group.WorkspaceIDs) == 0 {
+		group.WorkspaceIDs = defaultAccountManagerWorkspaceIDs()
+	}
 	if req.Permissions != nil {
 		group.Permissions = normalizePluginPermissions(req.Permissions, now)
 	} else if group.Permissions == nil {
@@ -1386,7 +2428,7 @@ func (h *HttpAPI_Plugin) accountFromRequest(req accountRequest, fallback managed
 		return account, errors.New("account id is required")
 	}
 	if isReservedAccountID(account.ID) || isReservedAccountID(account.Username) {
-		return account, errors.New("root is reserved and cannot be used as account id")
+		return account, errors.New("system-admin is reserved and cannot be used as account id")
 	}
 	account.DisplayName = strings.TrimSpace(firstNonEmptyAccountManager(req.DisplayName, fallback.DisplayName))
 	account.Email = strings.TrimSpace(firstNonEmptyAccountManager(req.Email, fallback.Email))
@@ -1420,7 +2462,12 @@ func (h *HttpAPI_Plugin) accountFromRequest(req accountRequest, fallback managed
 	return account, nil
 }
 
-func (h *HttpAPI_Plugin) verifyCredentials(body []byte) []byte {
+func (h *HttpAPI_Plugin) verifyCredentials(w http.ResponseWriter, r *http.Request, body []byte) (response []byte) {
+	defer func() {
+		if recoverAccountManagerPanic("verifyCredentials") != nil {
+			response = accountManagerRecoveredJSON("verifyCredentials")
+		}
+	}()
 	if err := h.ensureLoaded(); err != nil {
 		return mustAccountManagerJSON(map[string]any{"success": false, "error": err.Error(), "plugin": h.statusPayload()})
 	}
@@ -1430,25 +2477,57 @@ func (h *HttpAPI_Plugin) verifyCredentials(body []byte) []byte {
 	}
 	username := firstNonEmptyAccountManager(req.Account, req.Username)
 	password := strings.TrimSpace(req.Password)
+	apiKey := strings.TrimSpace(firstNonEmptyAccountManager(req.APIKey, req.Key))
 	project := firstNonEmptyAccountManager(req.Project, "default")
+	rateLimitKey := accountManagerVerifyRateLimitKey(r, req)
+	if retryAfter := h.accountManagerVerifyRateLimited(rateLimitKey, time.Now()); retryAfter > 0 {
+		return mustAccountManagerJSON(accountManagerRateLimitedVerifyPayload(w, username, project, retryAfter))
+	}
+	if apiKey != "" {
+		account, ok := h.findAccountByAPIKey(apiKey)
+		if !ok {
+			h.recordAccountManagerVerifyFailure(rateLimitKey, time.Now())
+			return mustAccountManagerJSON(genericVerifyFailurePayload(username, project))
+		}
+		if username != "" && !strings.EqualFold(account.Username, username) && !strings.EqualFold(account.ID, username) {
+			h.recordAccountManagerVerifyFailure(rateLimitKey, time.Now())
+			return mustAccountManagerJSON(genericVerifyFailurePayload(username, project))
+		}
+		policy := h.passwordPolicy()
+		if policy.RequireEnabledAccount && !account.Enabled {
+			h.recordAccountManagerVerifyFailure(rateLimitKey, time.Now())
+			return mustAccountManagerJSON(genericVerifyFailurePayload(username, project))
+		}
+		allowed, matched := h.accountAllowsPlugin(account, req.PluginID, req.Scope)
+		if req.PluginID != "" && !allowed {
+			return mustAccountManagerJSON(verifyFailurePayload(account.Username, project, "permission denied"))
+		}
+		h.clearAccountManagerVerifyFailures(rateLimitKey)
+		return mustAccountManagerJSON(h.verifySuccessPayload(account, project, req.PluginID, allowed, matched))
+	}
 	if username == "" || password == "" {
-		return mustAccountManagerJSON(verifyFailurePayload(username, project, "account and password are required"))
+		h.recordAccountManagerVerifyFailure(rateLimitKey, time.Now())
+		return mustAccountManagerJSON(genericVerifyFailurePayload(username, project))
 	}
 	account, ok := h.findAccountByUsername(username)
 	if !ok {
-		return mustAccountManagerJSON(verifyFailurePayload(username, project, "account not found"))
-	}
-	policy := h.passwordPolicy()
-	if policy.RequireEnabledAccount && !account.Enabled {
-		return mustAccountManagerJSON(verifyFailurePayload(account.Username, project, "account disabled"))
+		h.recordAccountManagerVerifyFailure(rateLimitKey, time.Now())
+		return mustAccountManagerJSON(genericVerifyFailurePayload(username, project))
 	}
 	decrypted, err := decryptPassword(account.PasswordAES, h.encryptionKey())
 	if err != nil {
-		return mustAccountManagerJSON(verifyFailurePayload(account.Username, project, "password decrypt failed"))
+		h.recordAccountManagerVerifyFailure(rateLimitKey, time.Now())
+		return mustAccountManagerJSON(genericVerifyFailurePayload(username, project))
 	}
 	valid := subtle.ConstantTimeCompare([]byte(decrypted), []byte(password)) == 1
 	if !valid {
-		return mustAccountManagerJSON(verifyFailurePayload(account.Username, project, "password mismatch"))
+		h.recordAccountManagerVerifyFailure(rateLimitKey, time.Now())
+		return mustAccountManagerJSON(genericVerifyFailurePayload(username, project))
+	}
+	policy := h.passwordPolicy()
+	if policy.RequireEnabledAccount && !account.Enabled {
+		h.recordAccountManagerVerifyFailure(rateLimitKey, time.Now())
+		return mustAccountManagerJSON(genericVerifyFailurePayload(username, project))
 	}
 	allowed, matched := h.accountAllowsPlugin(account, req.PluginID, req.Scope)
 	if req.PluginID != "" && !allowed {
@@ -1456,17 +2535,137 @@ func (h *HttpAPI_Plugin) verifyCredentials(body []byte) []byte {
 	}
 	account.LastLoginAt = time.Now().Format(time.RFC3339)
 	h.persistAccount(account)
-	return mustAccountManagerJSON(map[string]any{
-		"success":     true,
-		"account":     account.Username,
-		"project":     project,
-		"roles":       accountRoleNames(account),
-		"permissions": accountPermissionNames(h.effectivePermissions(account)),
-		"expires_in":  86400,
-		"valid":       true,
-		"allowed":     allowed,
-		"permission":  matched,
-	})
+	h.clearAccountManagerVerifyFailures(rateLimitKey)
+	return mustAccountManagerJSON(h.verifySuccessPayload(account, project, req.PluginID, allowed, matched))
+}
+
+func (h *HttpAPI_Plugin) verifySuccessPayload(account managedAccount, project string, pluginID string, allowed bool, matched pluginPermission) map[string]any {
+	permissions := h.effectivePermissions(account)
+	roles := accountRoleNames(account)
+	workspaceIDs := h.effectiveWorkspaceIDs(account)
+	response := map[string]any{
+		"success":            true,
+		"account":            account.Username,
+		"project":            project,
+		"display_name":       account.DisplayName,
+		"roles":              roles,
+		"permissions":        accountPermissionNames(permissions),
+		"permission_details": permissionDetailsForResponse(permissions),
+		"plugin_permissions": permissionDetailsForResponse(permissions),
+		"plugin_settings":    pluginSettingsMap(permissions),
+		"settings":           pluginSettingsMap(permissions),
+		"expires_in":         86400,
+		"valid":              true,
+		"allowed":            allowed,
+		"permission":         matched,
+		"workspace_ids":      workspaceIDs,
+	}
+	jwtPayload, jwtExtensions, requested, err := accountManagerJWTRequest(account, project, roles, permissions, workspaceIDs)
+	if err != nil {
+		return verifyFailurePayload(account.Username, project, "account JWT configuration is invalid")
+	}
+	if requested {
+		response["jwt_payload"] = jwtPayload
+		if len(jwtExtensions) > 0 {
+			response["jwt_extensions"] = jwtExtensions
+		}
+	}
+	if pluginID != "" {
+		response["features"] = pluginSettingsForPlugin(permissions, pluginID)
+		response["plugin_features"] = map[string]any{pluginID: pluginSettingsForPlugin(permissions, pluginID)}
+	}
+	return response
+}
+
+func accountManagerJWTRequest(account managedAccount, project string, roles []string, permissions []pluginPermission, workspaceIDs []string) (map[string]any, []map[string]any, bool, error) {
+	if account.Metadata == nil {
+		return nil, nil, false, nil
+	}
+	rawConfig, exists := account.Metadata["jwt"]
+	if !exists {
+		return nil, nil, false, nil
+	}
+	config, ok := rawConfig.(map[string]any)
+	if !ok {
+		return nil, nil, false, fmt.Errorf("metadata.jwt must be an object")
+	}
+	enabled, _ := config["enabled"].(bool)
+	if !enabled {
+		return nil, nil, false, nil
+	}
+
+	now := time.Now()
+	subject := firstNonEmptyAccountManager(account.ID, account.Username)
+	payload := map[string]any{
+		"iss":                account.Username,
+		"sub":                subject,
+		"account":            account.Username,
+		"project":            firstNonEmptyAccountManager(project, "default"),
+		"display_name":       account.DisplayName,
+		"roles":              roles,
+		"permissions":        accountPermissionNames(permissions),
+		"plugin_permissions": permissionDetailsForResponse(permissions),
+		"workspace_ids":      workspaceIDs,
+		"iat":                now.Unix(),
+		"exp":                now.Add(24 * time.Hour).Unix(),
+	}
+	if len(roles) > 0 {
+		payload["group"] = roles[0]
+	}
+	if rawClaims, exists := config["claims"]; exists {
+		claims, ok := rawClaims.(map[string]any)
+		if !ok {
+			return nil, nil, false, fmt.Errorf("metadata.jwt.claims must be an object")
+		}
+		for key, value := range claims {
+			key = strings.TrimSpace(key)
+			if key == "" {
+				return nil, nil, false, fmt.Errorf("metadata.jwt.claims contains an empty key")
+			}
+			payload[key] = value
+		}
+	}
+
+	extensions, err := accountManagerJWTExtensions(config["extensions"])
+	if err != nil {
+		return nil, nil, false, err
+	}
+	if _, err := json.Marshal(payload); err != nil {
+		return nil, nil, false, fmt.Errorf("metadata.jwt.claims is not JSON encodable: %w", err)
+	}
+	return payload, extensions, true, nil
+}
+
+func accountManagerJWTExtensions(raw any) ([]map[string]any, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	items, ok := raw.([]any)
+	if !ok {
+		if typed, typedOK := raw.([]map[string]any); typedOK {
+			items = make([]any, len(typed))
+			for index := range typed {
+				items[index] = typed[index]
+			}
+		} else {
+			return nil, fmt.Errorf("metadata.jwt.extensions must be an array")
+		}
+	}
+	if len(items) > 2 {
+		return nil, fmt.Errorf("metadata.jwt.extensions supports at most two items")
+	}
+	extensions := make([]map[string]any, 0, len(items))
+	for index, item := range items {
+		extension, ok := item.(map[string]any)
+		if !ok || extension == nil {
+			return nil, fmt.Errorf("metadata.jwt.extensions[%d] must be an object", index)
+		}
+		if _, err := json.Marshal(extension); err != nil {
+			return nil, fmt.Errorf("metadata.jwt.extensions[%d] is not JSON encodable: %w", index, err)
+		}
+		extensions = append(extensions, extension)
+	}
+	return extensions, nil
 }
 
 func verifyFailurePayload(account string, project string, reason string) map[string]any {
@@ -1482,6 +2681,145 @@ func verifyFailurePayload(account string, project string, reason string) map[str
 	}
 }
 
+func genericVerifyFailurePayload(account string, project string) map[string]any {
+	return verifyFailurePayload(account, project, accountManagerInvalidCredentialsError)
+}
+
+func accountManagerRateLimitedVerifyPayload(w http.ResponseWriter, account string, project string, retryAfter time.Duration) map[string]any {
+	retryAfterSeconds := int((retryAfter + time.Second - time.Nanosecond) / time.Second)
+	if retryAfterSeconds < 1 {
+		retryAfterSeconds = 1
+	}
+	if w != nil {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.Header().Set("Retry-After", fmt.Sprintf("%d", retryAfterSeconds))
+		w.WriteHeader(http.StatusTooManyRequests)
+	}
+	payload := verifyFailurePayload(account, project, "too many attempts")
+	payload["code"] = "RATE_LIMITED"
+	payload["retry_after"] = retryAfterSeconds
+	return payload
+}
+
+func accountManagerVerifyRateLimitKey(r *http.Request, req verifyRequest) string {
+	remoteHost := accountManagerRequestRemoteHost(r)
+	account := strings.ToLower(strings.TrimSpace(firstNonEmptyAccountManager(req.Account, req.Username)))
+	apiKey := strings.TrimSpace(firstNonEmptyAccountManager(req.APIKey, req.Key))
+	subject := "account:" + account
+	if apiKey != "" {
+		hash := hashAccountAPIKey(apiKey)
+		if len(hash) > 16 {
+			hash = hash[:16]
+		}
+		subject = "api-key:" + hash
+	} else if account == "" {
+		subject = "account:unknown"
+	}
+	return remoteHost + "|" + subject
+}
+
+func accountManagerRequestRemoteHost(r *http.Request) string {
+	if r == nil {
+		return "unknown"
+	}
+	remoteAddr := strings.TrimSpace(r.RemoteAddr)
+	if remoteAddr == "" {
+		return "unknown"
+	}
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		host = strings.Trim(remoteAddr, "[]")
+	}
+	host = strings.TrimSpace(host)
+	if host == "" {
+		return "unknown"
+	}
+	return strings.ToLower(host)
+}
+
+func (h *HttpAPI_Plugin) accountManagerVerifyRateLimited(key string, now time.Time) time.Duration {
+	if key == "" {
+		return 0
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.cleanupAccountManagerVerifyLimitsLocked(now)
+	state, ok := h.verifyLimits[key]
+	if !ok {
+		return 0
+	}
+	if state.BlockedUntil.After(now) {
+		return state.BlockedUntil.Sub(now)
+	}
+	return 0
+}
+
+func (h *HttpAPI_Plugin) recordAccountManagerVerifyFailure(key string, now time.Time) {
+	if key == "" {
+		return
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.verifyLimits == nil {
+		h.verifyLimits = map[string]accountManagerVerifyRateLimit{}
+	}
+	state := h.verifyLimits[key]
+	if state.ResetAt.IsZero() || now.After(state.ResetAt) {
+		state = accountManagerVerifyRateLimit{ResetAt: now.Add(accountManagerVerifyRateLimitWindow)}
+	}
+	state.Failures++
+	if state.Failures >= accountManagerVerifyRateLimitMaxAttempts {
+		state.BlockedUntil = now.Add(accountManagerVerifyRateLimitCooldown)
+		state.ResetAt = state.BlockedUntil
+	}
+	h.verifyLimits[key] = state
+}
+
+func (h *HttpAPI_Plugin) clearAccountManagerVerifyFailures(key string) {
+	if key == "" {
+		return
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	delete(h.verifyLimits, key)
+}
+
+func (h *HttpAPI_Plugin) clearAccountManagerVerifyFailuresForAccounts(accounts ...string) {
+	subjects := map[string]bool{}
+	for _, account := range accounts {
+		account = strings.ToLower(strings.TrimSpace(account))
+		if account != "" {
+			subjects["account:"+account] = true
+		}
+	}
+	if len(subjects) == 0 {
+		return
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for key := range h.verifyLimits {
+		parts := strings.Split(key, "|")
+		if len(parts) == 0 {
+			continue
+		}
+		if subjects[parts[len(parts)-1]] {
+			delete(h.verifyLimits, key)
+		}
+	}
+}
+
+func (h *HttpAPI_Plugin) cleanupAccountManagerVerifyLimitsLocked(now time.Time) {
+	if len(h.verifyLimits) == 0 {
+		return
+	}
+	for key, state := range h.verifyLimits {
+		if state.BlockedUntil.After(now) || state.ResetAt.After(now) {
+			continue
+		}
+		delete(h.verifyLimits, key)
+	}
+}
+
 func (h *HttpAPI_Plugin) findAccountByUsername(username string) (managedAccount, bool) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -1493,12 +2831,68 @@ func (h *HttpAPI_Plugin) findAccountByUsername(username string) (managedAccount,
 	return managedAccount{}, false
 }
 
+func (h *HttpAPI_Plugin) findAccountByAPIKey(key string) (managedAccount, bool) {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return managedAccount{}, false
+	}
+	hash := hashAccountAPIKey(key)
+	now := time.Now().Format(time.RFC3339)
+	h.mu.Lock()
+	for _, account := range h.accounts {
+		keys := normalizeAccountAPIKeys(account.APIKeys)
+		for index, apiKey := range keys {
+			if !apiKey.Enabled || apiKey.KeyHash == "" {
+				continue
+			}
+			if subtle.ConstantTimeCompare([]byte(apiKey.KeyHash), []byte(hash)) != 1 {
+				continue
+			}
+			apiKey.LastUsedAt = now
+			keys[index] = apiKey
+			account.APIKeys = keys
+			account.LastLoginAt = now
+			h.accounts[account.ID] = account
+			h.config.Accounts = accountsMapToSlice(h.accounts)
+			cfg := h.config
+			h.mu.Unlock()
+			_ = writeAccountManagerConfig(cfg)
+			_ = h.loadConfig(true)
+			return account, true
+		}
+	}
+	h.mu.Unlock()
+	return managedAccount{}, false
+}
+
 func accountRoleNames(account managedAccount) []string {
 	roles := normalizeStringIDs([]string{account.Role})
 	if len(roles) == 0 {
 		return []string{"user"}
 	}
 	return roles
+}
+
+func accountPermissionPayload(account managedAccount, permissions []pluginPermission, workspaceIDs []string, pluginID string, allowed bool, matched pluginPermission) map[string]any {
+	pluginID = strings.TrimSpace(pluginID)
+	payload := map[string]any{
+		"success":            true,
+		"allowed":            allowed,
+		"account":            toPublicAccount(account),
+		"permissions":        permissionDetailsForResponse(permissions),
+		"permission_details": permissionDetailsForResponse(permissions),
+		"plugin_permissions": permissionDetailsForResponse(permissions),
+		"permission_names":   accountPermissionNames(permissions),
+		"plugin_settings":    pluginSettingsMap(permissions),
+		"settings":           pluginSettingsMap(permissions),
+		"permission":         matched,
+		"workspace_ids":      normalizeAccountManagerWorkspaceIDs(workspaceIDs),
+	}
+	if pluginID != "" {
+		payload["features"] = pluginSettingsForPlugin(permissions, pluginID)
+		payload["plugin_features"] = map[string]any{pluginID: pluginSettingsForPlugin(permissions, pluginID)}
+	}
+	return payload
 }
 
 func accountPermissionNames(permissions []pluginPermission) []string {
@@ -1526,6 +2920,60 @@ func accountPermissionNames(permissions []pluginPermission) []string {
 		}
 	}
 	sort.Strings(out)
+	return out
+}
+
+func permissionDetailsForResponse(permissions []pluginPermission) []pluginPermission {
+	out := make([]pluginPermission, 0, len(permissions))
+	for _, permission := range permissions {
+		permission.Settings = copyAccountManagerSettings(permission.Settings)
+		out = append(out, permission)
+	}
+	return out
+}
+
+func pluginSettingsMap(permissions []pluginPermission) map[string]any {
+	out := map[string]any{}
+	for _, permission := range permissions {
+		pluginID := strings.TrimSpace(permission.PluginID)
+		if pluginID == "" || len(permission.Settings) == 0 {
+			continue
+		}
+		out[pluginID] = copyAccountManagerSettings(permission.Settings)
+	}
+	return out
+}
+
+func pluginSettingsForPlugin(permissions []pluginPermission, pluginID string) map[string]any {
+	pluginID = strings.TrimSpace(pluginID)
+	if pluginID == "" {
+		return map[string]any{}
+	}
+	for _, permission := range permissions {
+		if strings.EqualFold(permission.PluginID, pluginID) {
+			return copyAccountManagerSettings(permission.Settings)
+		}
+	}
+	for _, permission := range permissions {
+		if permission.PluginID == "*" {
+			return copyAccountManagerSettings(permission.Settings)
+		}
+	}
+	return map[string]any{}
+}
+
+func copyAccountManagerSettings(settings map[string]any) map[string]any {
+	if len(settings) == 0 {
+		return map[string]any{}
+	}
+	out := make(map[string]any, len(settings))
+	for key, value := range settings {
+		key = strings.TrimSpace(key)
+		if key == "" {
+			continue
+		}
+		out[key] = value
+	}
 	return out
 }
 
@@ -1560,7 +3008,12 @@ func (h *HttpAPI_Plugin) persistAccount(account managedAccount) {
 	_ = h.loadConfig(true)
 }
 
-func readAccountManagerConfig(path string) (accountManagerConfig, time.Time, error) {
+func readAccountManagerConfig(path string) (cfg accountManagerConfig, modified time.Time, err error) {
+	defer func() {
+		if recoverAccountManagerPanic("readAccountManagerConfig") != nil {
+			err = accountManagerRecoveredError("readAccountManagerConfig")
+		}
+	}()
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) && path == AccountManagerConfigPath {
@@ -1568,22 +3021,26 @@ func readAccountManagerConfig(path string) (accountManagerConfig, time.Time, err
 		}
 		return accountManagerConfig{}, time.Time{}, err
 	}
-	var cfg accountManagerConfig
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return accountManagerConfig{}, time.Time{}, fmt.Errorf("invalid account manager config: %w", err)
 	}
 	if err := normalizeAccountManagerConfig(&cfg); err != nil {
 		return accountManagerConfig{}, time.Time{}, err
 	}
-	modified := time.Now()
+	modified = time.Now()
 	if stat, err := os.Stat(path); err == nil {
 		modified = stat.ModTime()
 	}
 	return cfg, modified, nil
 }
 
-func initializeAccountManagerConfigFromDefault() (accountManagerConfig, time.Time, error) {
-	cfg := accountManagerConfig{Version: AccountManagerVersion}
+func initializeAccountManagerConfigFromDefault() (cfg accountManagerConfig, modified time.Time, err error) {
+	defer func() {
+		if recoverAccountManagerPanic("initializeAccountManagerConfigFromDefault") != nil {
+			err = accountManagerRecoveredError("initializeAccountManagerConfigFromDefault")
+		}
+	}()
+	cfg = accountManagerConfig{Version: AccountManagerVersion}
 	defaultPath := filepath.Join(filepath.Dir(AccountManagerConfigPath), "config.default.json")
 	if data, err := os.ReadFile(defaultPath); err == nil {
 		if err := json.Unmarshal(data, &cfg); err != nil {
@@ -1598,14 +3055,19 @@ func initializeAccountManagerConfigFromDefault() (accountManagerConfig, time.Tim
 	if err := writeAccountManagerConfig(cfg); err != nil {
 		return accountManagerConfig{}, time.Time{}, err
 	}
-	modified := time.Now()
+	modified = time.Now()
 	if stat, err := os.Stat(AccountManagerConfigPath); err == nil {
 		modified = stat.ModTime()
 	}
 	return cfg, modified, nil
 }
 
-func normalizeAccountManagerConfig(cfg *accountManagerConfig) error {
+func normalizeAccountManagerConfig(cfg *accountManagerConfig) (err error) {
+	defer func() {
+		if recoverAccountManagerPanic("normalizeAccountManagerConfig") != nil {
+			err = accountManagerRecoveredError("normalizeAccountManagerConfig")
+		}
+	}()
 	if cfg.Version == "" {
 		cfg.Version = AccountManagerVersion
 	}
@@ -1636,6 +3098,7 @@ func normalizeAccountManagerConfig(cfg *accountManagerConfig) error {
 		if group.UpdatedAt == "" {
 			group.UpdatedAt = group.CreatedAt
 		}
+		group.WorkspaceIDs = normalizeAccountManagerWorkspaceIDs(group.WorkspaceIDs)
 		group.Permissions = normalizePluginPermissions(group.Permissions, group.UpdatedAt)
 		groups = append(groups, group)
 	}
@@ -1680,28 +3143,69 @@ func normalizeAccountManagerConfig(cfg *accountManagerConfig) error {
 		account.InitialPassword = ""
 		account.GroupIDs = normalizeStringIDs(account.GroupIDs)
 		account.Permissions = normalizePluginPermissions(account.Permissions, account.UpdatedAt)
+		account.APIKeys = normalizeAccountAPIKeys(account.APIKeys)
 		accounts = append(accounts, account)
 	}
 	cfg.Accounts = accounts
 	return nil
 }
 
-func writeAccountManagerConfig(cfg accountManagerConfig) error {
+func writeAccountManagerConfig(cfg accountManagerConfig) (err error) {
+	defer func() {
+		if recoverAccountManagerPanic("writeAccountManagerConfig") != nil {
+			err = accountManagerRecoveredError("writeAccountManagerConfig")
+		}
+	}()
 	if err := normalizeAccountManagerConfig(&cfg); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(AccountManagerConfigPath), 0o755); err != nil {
+	configDir := filepath.Dir(AccountManagerConfigPath)
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
 		return err
 	}
 	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return err
 	}
-	tmpPath := AccountManagerConfigPath + ".tmp"
-	if err := os.WriteFile(tmpPath, append(data, '\n'), 0o600); err != nil {
+	tmpFile, err := os.CreateTemp(configDir, filepath.Base(AccountManagerConfigPath)+".*.tmp")
+	if err != nil {
 		return err
 	}
-	return os.Rename(tmpPath, AccountManagerConfigPath)
+	tmpPath := tmpFile.Name()
+	committed := false
+	defer func() {
+		if !committed {
+			_ = os.Remove(tmpPath)
+		}
+	}()
+	if err := tmpFile.Chmod(0o600); err != nil {
+		_ = tmpFile.Close()
+		return err
+	}
+	if _, err := tmpFile.Write(append(data, '\n')); err != nil {
+		_ = tmpFile.Close()
+		return err
+	}
+	if err := tmpFile.Close(); err != nil {
+		return err
+	}
+	if err := replaceAccountManagerConfigFile(tmpPath, AccountManagerConfigPath); err != nil {
+		return err
+	}
+	committed = true
+	return nil
+}
+
+func replaceAccountManagerConfigFile(tmpPath string, targetPath string) error {
+	if err := os.Rename(tmpPath, targetPath); err == nil {
+		return nil
+	} else if runtime.GOOS != "windows" {
+		return err
+	}
+	if err := os.Remove(targetPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return os.Rename(tmpPath, targetPath)
 }
 
 func toPublicAccount(account managedAccount) publicAccount {
@@ -1720,8 +3224,95 @@ func toPublicAccount(account managedAccount) publicAccount {
 		UpdatedAt:         account.UpdatedAt,
 		LastLoginAt:       account.LastLoginAt,
 		Permissions:       normalizePluginPermissions(account.Permissions, account.UpdatedAt),
+		APIKeys:           publicAPIKeys(account.APIKeys),
 		Metadata:          account.Metadata,
 	}
+}
+
+func toPublicAPIKey(key accountAPIKey) publicAPIKey {
+	return publicAPIKey{
+		ID:         key.ID,
+		Name:       key.Name,
+		Prefix:     key.Prefix,
+		Enabled:    key.Enabled,
+		CreatedAt:  key.CreatedAt,
+		LastUsedAt: key.LastUsedAt,
+	}
+}
+
+func publicAPIKeys(keys []accountAPIKey) []publicAPIKey {
+	keys = normalizeAccountAPIKeys(keys)
+	out := make([]publicAPIKey, 0, len(keys))
+	for _, key := range keys {
+		out = append(out, toPublicAPIKey(key))
+	}
+	return out
+}
+
+func normalizeAccountAPIKeys(keys []accountAPIKey) []accountAPIKey {
+	out := make([]accountAPIKey, 0, len(keys))
+	seen := map[string]bool{}
+	for _, key := range keys {
+		key.ID = sanitizeAccountManagerID(firstNonEmptyAccountManager(key.ID, key.Name, key.Prefix))
+		key.Name = strings.TrimSpace(key.Name)
+		key.Prefix = strings.TrimSpace(key.Prefix)
+		key.KeyHash = strings.TrimSpace(key.KeyHash)
+		if key.ID == "" || key.Name == "" || key.KeyHash == "" {
+			continue
+		}
+		idKey := strings.ToLower(key.ID)
+		if seen[idKey] {
+			continue
+		}
+		seen[idKey] = true
+		if key.Prefix == "" {
+			key.Prefix = key.ID
+		}
+		out = append(out, key)
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		return strings.ToLower(out[i].CreatedAt+out[i].ID) < strings.ToLower(out[j].CreatedAt+out[j].ID)
+	})
+	return out
+}
+
+func uniqueAccountAPIKeyID(keys []accountAPIKey, base string) string {
+	base = sanitizeAccountManagerID(base)
+	if base == "" {
+		base = "key"
+	}
+	seen := map[string]bool{}
+	for _, key := range keys {
+		seen[strings.ToLower(key.ID)] = true
+	}
+	if !seen[strings.ToLower(base)] {
+		return base
+	}
+	for i := 2; ; i++ {
+		candidate := fmt.Sprintf("%s-%d", base, i)
+		if !seen[strings.ToLower(candidate)] {
+			return candidate
+		}
+	}
+}
+
+func generateAccountAPIKey() (string, string, string, error) {
+	random := make([]byte, 32)
+	if _, err := crand.Read(random); err != nil {
+		return "", "", "", err
+	}
+	raw := base64.RawURLEncoding.EncodeToString(random)
+	key := "acct_" + raw
+	prefix := key
+	if len(prefix) > 15 {
+		prefix = prefix[:15]
+	}
+	return key, prefix, hashAccountAPIKey(key), nil
+}
+
+func hashAccountAPIKey(key string) string {
+	sum := sha256.Sum256([]byte(strings.TrimSpace(key)))
+	return base64.RawURLEncoding.EncodeToString(sum[:])
 }
 
 func normalizePluginPermissions(permissions []pluginPermission, fallbackUpdatedAt string) []pluginPermission {
@@ -1785,23 +3376,55 @@ func (h *HttpAPI_Plugin) effectivePermissions(account managedAccount) []pluginPe
 	return normalizePluginPermissions(permissions, time.Now().Format(time.RFC3339))
 }
 
+func (h *HttpAPI_Plugin) effectiveWorkspaceIDs(account managedAccount) []string {
+	workspaceIDs := []string{}
+	h.mu.Lock()
+	for _, groupID := range account.GroupIDs {
+		group, ok := h.findGroupLocked(groupID)
+		if !ok || !group.Enabled {
+			continue
+		}
+		workspaceIDs = append(workspaceIDs, group.WorkspaceIDs...)
+	}
+	h.mu.Unlock()
+	return normalizeAccountManagerWorkspaceIDs(workspaceIDs)
+}
+
 func permissionsAllowPlugin(permissions []pluginPermission, pluginID string, scope string) (bool, pluginPermission) {
 	pluginID = strings.TrimSpace(pluginID)
 	scope = strings.TrimSpace(strings.ToLower(scope))
 	if pluginID == "" {
 		return true, pluginPermission{}
 	}
+	var wildcardPermission pluginPermission
+	wildcardMatched := false
 	for _, permission := range permissions {
-		if !permission.Enabled {
+		if permission.PluginID == "*" {
+			if !wildcardMatched {
+				wildcardPermission = permission
+				wildcardMatched = true
+			}
 			continue
 		}
-		if permission.PluginID != "*" && !strings.EqualFold(permission.PluginID, pluginID) {
+		if !strings.EqualFold(permission.PluginID, pluginID) {
 			continue
+		}
+		if !permission.Enabled {
+			return false, permission
 		}
 		if scope == "" || scopeAllowed(permission.Scopes, scope) {
 			return true, permission
 		}
 		return false, permission
+	}
+	if wildcardMatched {
+		if !wildcardPermission.Enabled {
+			return false, wildcardPermission
+		}
+		if scope == "" || scopeAllowed(wildcardPermission.Scopes, scope) {
+			return true, wildcardPermission
+		}
+		return false, wildcardPermission
 	}
 	return false, pluginPermission{}
 }
@@ -1862,6 +3485,25 @@ func normalizeStringIDs(values []string) []string {
 	return out
 }
 
+func defaultAccountManagerWorkspaceIDs() []string {
+	return []string{accountManagerDefaultWorkspaceID}
+}
+
+func normalizeAccountManagerWorkspaceIDs(values []string) []string {
+	seen := map[string]bool{accountManagerDefaultWorkspaceID: true}
+	out := defaultAccountManagerWorkspaceIDs()
+	for _, value := range values {
+		id := sanitizeAccountManagerID(value)
+		if id == "" || seen[id] {
+			continue
+		}
+		seen[id] = true
+		out = append(out, id)
+	}
+	sort.Strings(out[1:])
+	return out
+}
+
 func removeStringID(values []string, target string) []string {
 	target = strings.ToLower(sanitizeAccountManagerID(target))
 	out := make([]string, 0, len(values))
@@ -1874,7 +3516,7 @@ func removeStringID(values []string, target string) []string {
 }
 
 func isReservedAccountID(input string) bool {
-	return strings.EqualFold(strings.TrimSpace(input), "root")
+	return strings.EqualFold(strings.TrimSpace(input), "system-admin")
 }
 
 func validatePasswordPolicy(password string, policy passwordPolicy) error {

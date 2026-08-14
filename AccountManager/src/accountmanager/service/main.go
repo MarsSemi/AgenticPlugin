@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -8,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"agentic-plugin/account-manager/src/accountmanager/internal/accountmanager"
 )
@@ -25,9 +28,27 @@ func main() {
 	}
 
 	accountmanager.AccountManagerConfigPath = *configPath
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("AGENTIC_STDIO_AUTH")), "1") {
+		accountmanager.StartStdioAuthClient(os.Stdin, os.Stdout)
+	}
 	api := &accountmanager.HttpAPI_Plugin{}
+	server := &http.Server{
+		Addr:    *addr,
+		Handler: api,
+	}
+	api.Shutdown = func() {
+		server.SetKeepAlivesEnabled(false)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		if err := server.Shutdown(ctx); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Printf("account-manager-service shutdown failed: %v", err)
+			if closeErr := server.Close(); closeErr != nil && !errors.Is(closeErr, http.ErrServerClosed) {
+				log.Printf("account-manager-service close failed: %v", closeErr)
+			}
+		}
+	}
 	log.Printf("account-manager-service listening on %s, root=%s, config=%s", *addr, pluginRoot, *configPath)
-	if err := http.ListenAndServe(*addr, api); err != nil {
+	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal(err)
 	}
 }
